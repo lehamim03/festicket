@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 export default function SchoolPicker({ schools, selectedSchoolId, onSelect }) {
   const [schoolSearch, setSchoolSearch] = useState('')
@@ -85,9 +86,17 @@ export default function SchoolPicker({ schools, selectedSchoolId, onSelect }) {
           <span className="text-xs text-indigo-600 font-semibold">
             {schools.find(s => s.id === selectedSchoolId)?.name} 보는 중
           </span>
-          <button onClick={() => onSelect(null)} className="text-xs text-gray-400 hover:text-gray-600 transition">
-            전체로 돌아가기
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              to={`/schools/${selectedSchoolId}/events`}
+              className="text-xs text-primary-500 font-semibold hover:text-primary-700 transition"
+            >
+              학교 행사 페이지 →
+            </Link>
+            <button onClick={() => onSelect(null)} className="text-xs text-gray-400 hover:text-gray-600 transition">
+              전체로 돌아가기
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -2,13 +2,26 @@ const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { randomUUID, randomBytes } = require('crypto')
+const path = require('path')
 const { PrismaClient } = require('@prisma/client')
+const multer = require('multer')
 const rateLimit = require('express-rate-limit')
 const authMiddleware = require('../middleware/auth')
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/mailer')
+const supabase = require('../services/supabase')
 
 const router = express.Router()
 const prisma = new PrismaClient()
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp']
+    const ext = path.extname(file.originalname).toLowerCase()
+    allowed.includes(ext) ? cb(null, true) : cb(new Error('JPG·PNG·WEBP만 가능합니다.'))
+  }
+})
 
 // Rate limiters
 const loginLimiter = rateLimit({
@@ -51,8 +64,8 @@ router.post('/register', registerLimiter, async (req, res, next) => {
         const remaining = Math.ceil(7 - daysSince)
         return res.status(409).json({ message: `탈퇴 후 7일이 지나야 재가입할 수 있습니다. (${remaining}일 남음)` })
       }
-      // 7일 경과 시 기존 레코드 삭제 후 재가입
-      await prisma.user.delete({ where: { id: existing.id } })
+      // 7일 경과 시 기존 레코드 이메일 익명화 (FK 참조 유지, 이메일 중복 방지)
+      await prisma.user.update({ where: { id: existing.id }, data: { email: `deleted_${existing.id}@deleted` } })
     }
 
     // 이메일 도메인으로 학교 자동 매칭
@@ -106,10 +119,14 @@ router.get('/verify-email', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/auth/resend-verification — 인증 메일 재발송
-router.post('/resend-verification', authMiddleware, async (req, res, next) => {
+// POST /api/auth/resend-verification — 인증 메일 재발송 (로그인 불필요, 이메일로 요청)
+router.post('/resend-verification', async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+    const { email } = req.body
+    const user = email
+      ? await prisma.user.findUnique({ where: { email } })
+      : req.user ? await prisma.user.findUnique({ where: { id: req.user.id } }) : null
+    if (!user) return res.json({ message: '인증 메일을 재발송했습니다.' }) // 보안상 존재 여부 미노출
     if (user.emailVerified) return res.status(400).json({ message: '이미 인증된 이메일입니다.' })
 
     const verifyToken = randomUUID()
@@ -133,6 +150,10 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     if (user.deletedAt) {
       return res.status(401).json({ message: '탈퇴한 계정입니다.' })
     }
+    if (!user.emailVerified) {
+      const tokenExpired = !user.verifyTokenExpiry || new Date(user.verifyTokenExpiry) < new Date()
+      return res.status(403).json({ message: '이메일 인증이 필요합니다.', needsVerification: true, tokenExpired, email: user.email })
+    }
     const schoolData = user.schoolId
       ? await prisma.school.findUnique({ where: { id: user.schoolId }, select: { id: true, name: true, domain: true } })
       : null
@@ -152,7 +173,8 @@ router.get('/me', authMiddleware, async (req, res, next) => {
       where: { id: req.user.id },
       select: {
         id: true, name: true, email: true, role: true, emailVerified: true,
-        studentId: true, schoolId: true, kakaoId: true, roleMemo: true, school: { select: { id: true, name: true, domain: true, adminContact: true } }
+        studentId: true, schoolId: true, kakaoId: true, roleMemo: true, roleExpiresAt: true, organizationType: true, profileImageUrl: true,
+        school: { select: { id: true, name: true, domain: true, adminContact: true } }
       }
     })
     res.json({ ...user, isKakaoUser: !!user.kakaoId })
@@ -282,6 +304,62 @@ router.delete('/me', authMiddleware, async (req, res, next) => {
       data: { deletedAt: new Date() }
     })
     res.json({ message: '탈퇴가 완료되었습니다.' })
+  } catch (err) { next(err) }
+})
+
+// POST /api/auth/profile-image — 프로필 이미지 업로드
+router.post('/profile-image', authMiddleware, upload.single('image'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: '이미지 파일이 필요합니다. (JPG·PNG·WEBP, 최대 3MB)' })
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg'
+    const storagePath = `profiles/${req.user.id}${ext}`
+
+    const { error } = await supabase.storage
+      .from('event-images')
+      .upload(storagePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      })
+
+    if (error) return res.status(500).json({ message: '이미지 업로드에 실패했습니다.' })
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('event-images')
+      .getPublicUrl(storagePath)
+
+    const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { profileImageUrl: cacheBustedUrl }
+    })
+
+    res.json({ profileImageUrl: cacheBustedUrl })
+  } catch (err) { next(err) }
+})
+
+// DELETE /api/auth/profile-image — 프로필 이미지 삭제
+router.delete('/profile-image', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { profileImageUrl: true }
+    })
+
+    if (user?.profileImageUrl) {
+      const storagePath = user.profileImageUrl.split('/event-images/')[1]?.split('?')[0]
+      if (storagePath) {
+        await supabase.storage.from('event-images').remove([storagePath])
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { profileImageUrl: null }
+    })
+
+    res.json({ message: '프로필 이미지가 삭제되었습니다.' })
   } catch (err) { next(err) }
 })
 

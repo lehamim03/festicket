@@ -304,7 +304,7 @@ export default function AdminUsers() {
         <span className="text-sm text-gray-400 ml-auto">{users.length}명</span>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-4 border-primary-400 border-t-transparent rounded-full animate-spin" />

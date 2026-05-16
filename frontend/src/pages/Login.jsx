@@ -16,7 +16,16 @@ export default function Login() {
       login(token, user)
       navigate('/')
     } catch (err) {
-      toast(err.response?.data?.message || '로그인에 실패했습니다.', 'error')
+      if (err.response?.data?.needsVerification) {
+        const email = err.response.data.email
+        if (err.response.data.tokenExpired) {
+          navigate(`/verify-email?token=expired&email=${encodeURIComponent(email)}`)
+        } else {
+          toast('이메일 인증이 필요합니다. 인증 메일을 확인해주세요.', 'error')
+        }
+      } else {
+        toast(err.response?.data?.message || '로그인에 실패했습니다.', 'error')
+      }
     }
   }
 
@@ -90,6 +99,11 @@ export default function Login() {
           계정이 없으신가요?{' '}
           <Link to="/register" className="text-primary-600 font-medium hover:underline">
             무료로 가입하기
+          </Link>
+        </p>
+        <p className="text-center mt-3">
+          <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 transition underline underline-offset-2">
+            로그인 없이 행사 둘러보기 →
           </Link>
         </p>
       </div>

@@ -7,8 +7,10 @@ import { useToast } from '../components/Toast'
 export default function VerifyEmail() {
   const [params] = useSearchParams()
   const token = params.get('token')
-  const [status, setStatus] = useState('loading') // loading | success | expired | error
+  const emailParam = params.get('email') || ''
+  const [status, setStatus] = useState(token === 'expired' ? 'expired' : 'loading')
   const [resending, setResending] = useState(false)
+  const [resendEmail, setResendEmail] = useState(emailParam)
   const called = useRef(false)
   const { user } = useAuth()
   const toast = useToast()
@@ -27,10 +29,11 @@ export default function VerifyEmail() {
   }, [])
 
   const handleResend = async () => {
-    if (!user) return
+    const email = user?.email || resendEmail.trim()
+    if (!email) { toast('이메일을 입력해주세요.', 'error'); return }
     setResending(true)
     try {
-      await resendVerification()
+      await resendVerification(email)
       toast('인증 메일을 재발송했습니다.', 'success')
     } catch (err) {
       toast(err.response?.data?.message || '재발송에 실패했습니다.', 'error')
@@ -81,17 +84,22 @@ export default function VerifyEmail() {
             인증 링크는 24시간 동안만 유효합니다.<br />
             {user ? '아래 버튼을 눌러 새 인증 메일을 받으세요.' : '로그인 후 인증 메일을 재발송할 수 있습니다.'}
           </p>
-          {user ? (
-            <button
-              onClick={handleResend}
-              disabled={resending}
-              className="btn-primary w-full justify-center"
-            >
-              {resending ? '재발송 중...' : '인증 메일 재발송'}
-            </button>
-          ) : (
-            <Link to="/login" className="btn-primary w-full justify-center">로그인 후 재발송하기</Link>
+          {!user && (
+            <input
+              type="email"
+              value={resendEmail}
+              onChange={e => setResendEmail(e.target.value)}
+              placeholder="가입한 이메일 입력"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
           )}
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="btn-primary w-full justify-center"
+          >
+            {resending ? '재발송 중...' : '인증 메일 재발송'}
+          </button>
         </div>
       </div>
     )

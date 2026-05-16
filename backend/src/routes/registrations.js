@@ -60,13 +60,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     })
     if (activeReg) return res.status(409).json({ message: '이미 신청한 행사입니다.' })
 
-    // BR-09: 재신청 누적 3회 제한
-    const cancelledCount = await prisma.registration.count({
-      where: { eventId, userId, status: { in: ['CANCELLED', 'EXPIRED'] } },
-    })
-    if (cancelledCount >= 3) {
-      return res.status(400).json({ message: '재신청 가능 횟수를 초과했습니다. (최대 3회)' })
-    }
+
 
     // BR-40: 정원 점검 + INSERT (트랜잭션)
     try {

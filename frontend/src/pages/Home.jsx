@@ -2,10 +2,12 @@ import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getEvents } from '../api/events'
 import { getSchools } from '../api/schools'
+import { getBookmarkIds } from '../api/bookmarks'
 import EventCard from '../components/EventCard'
 import HeroSection from '../components/HeroSection'
 import SchoolPicker from '../components/SchoolPicker'
 import { useAuth } from '../hooks/useAuth'
+import { Link } from 'react-router-dom'
 
 const PRICE_FILTERS = [
   { value: 'all', label: '전체' },
@@ -45,6 +47,12 @@ export default function Home() {
   const { user } = useAuth()
 
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: getSchools })
+  const { data: bookmarkedIds = [] } = useQuery({
+    queryKey: ['bookmark-ids'],
+    queryFn: getBookmarkIds,
+    enabled: !!user,
+    staleTime: 60000,
+  })
 
   const { data: events, isLoading, isError } = useQuery({
     queryKey: ['events', selectedSchoolId],
@@ -251,7 +259,25 @@ export default function Home() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((event) => <EventCard key={event.id} event={event} />)}
+          {filtered.map((event) => <EventCard key={event.id} event={event} bookmarkedIds={bookmarkedIds} />)}
+        </div>
+      )}
+
+      {/* 비로그인 CTA */}
+      {!user && (
+        <div className="bg-white rounded-3xl shadow-card p-6 flex flex-col sm:flex-row items-center gap-4 justify-between">
+          <div>
+            <p className="font-bold text-gray-900">행사에 참여하고 싶으신가요?</p>
+            <p className="text-sm text-gray-400 mt-0.5">로그인하면 신청·결제·QR 체크인까지 한 번에.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Link to="/register" className="px-5 py-2.5 rounded-2xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+              회원가입
+            </Link>
+            <Link to="/login" className="btn-primary px-5 py-2.5 text-sm">
+              로그인
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -134,7 +134,7 @@ export default function HeroSection({ eventCount = 0, user, stats = [] }) {
   return (
     <section
       ref={heroRef}
-      className="hero-gradient relative rounded-4xl overflow-hidden mb-14 px-8 py-28 text-center"
+      className="hero-gradient relative rounded-4xl overflow-hidden mb-14 px-4 sm:px-8 py-16 sm:py-28 text-center"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
@@ -300,12 +300,13 @@ export default function HeroSection({ eventCount = 0, user, stats = [] }) {
           {/* Secondary 버튼 */}
           <motion.div
             className="relative overflow-hidden rounded-2xl"
-            whileHover={{ scale: 1.04 }}
+            whileHover={{ scale: 1.04, backgroundColor: 'rgba(255,255,255,0.9)' }}
             whileTap={{ scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 380, damping: 22 }}
             style={{
               background: 'rgba(255,255,255,0.7)',
               backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
               border: '1.5px solid rgba(124,58,237,0.25)',
               boxShadow: '0 4px 16px rgba(99,102,241,0.12)',
             }}

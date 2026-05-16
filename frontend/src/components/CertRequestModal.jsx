@@ -17,7 +17,7 @@ export default function CertRequestModal({ onClose }) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('status')
-  const [form, setForm] = useState({ organization: '', contact: '', message: '' })
+  const [form, setForm] = useState({ organization: '', contact: '', message: '', organizationType: '', expiresAt: '' })
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['my-cert-requests'],
@@ -173,6 +173,48 @@ export default function CertRequestModal({ onClose }) {
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-gray-700">
+                      구분 <span className="text-red-400">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: 'STUDENT_COUNCIL', label: '학생회', desc: '총학·과학생회 등' },
+                        { value: 'CLUB', label: '동아리', desc: '자생적 인수인계' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setForm(v => ({ ...v, organizationType: opt.value, expiresAt: '' }))}
+                          className={`rounded-xl border-2 px-3 py-2.5 text-left transition ${
+                            form.organizationType === opt.value
+                              ? 'border-primary-500 bg-primary-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <p className={`text-sm font-semibold ${form.organizationType === opt.value ? 'text-primary-700' : 'text-gray-700'}`}>{opt.label}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {form.organizationType === 'STUDENT_COUNCIL' && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-gray-700">
+                        임기 만료일 <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={form.expiresAt}
+                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        onChange={e => setForm(v => ({ ...v, expiresAt: e.target.value }))}
+                        className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
+                      />
+                      <p className="text-xs text-gray-400">임기 종료 시 자동으로 일반 사용자로 전환됩니다.</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
                       소속 단체 / 직책 <span className="text-red-400">*</span>
                     </label>
                     <input
@@ -216,8 +258,10 @@ export default function CertRequestModal({ onClose }) {
 
                   <button
                     onClick={() => {
+                      if (!form.organizationType) return toast('구분을 선택해주세요.', 'error')
                       if (!form.organization.trim()) return toast('소속 단체/직책을 입력해주세요.', 'error')
                       if (!form.contact.trim()) return toast('연락처를 입력해주세요.', 'error')
+                      if (form.organizationType === 'STUDENT_COUNCIL' && !form.expiresAt) return toast('임기 만료일을 입력해주세요.', 'error')
                       submitMutation.mutate()
                     }}
                     disabled={submitMutation.isPending}

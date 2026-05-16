@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import BookmarkButton from './BookmarkButton'
 
 function fmtPublishAt(iso) {
   const d = new Date(iso)
@@ -25,7 +26,7 @@ function getPalette(id) {
   return PALETTES[sum % PALETTES.length]
 }
 
-export default function EventCard({ event }) {
+export default function EventCard({ event, bookmarkedIds = [] }) {
   const sold = event._count?.registrations ?? 0
   const remaining = event.capacity - sold
   const isFull = remaining <= 0
@@ -121,14 +122,21 @@ export default function EventCard({ event }) {
             <h3 className="font-bold text-gray-900 text-[15px] line-clamp-1 group-hover:opacity-70 transition-opacity duration-200">
               {event.title}
             </h3>
-            {event.host?.isVerifiedHost && (
-              <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-full shrink-0 border border-indigo-100">
-                <svg className="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                인증 주최자
-              </span>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              <BookmarkButton
+                eventId={event.id}
+                isBookmarked={bookmarkedIds.includes(event.id)}
+                className="w-7 h-7 hover:scale-110"
+              />
+              {event.host?.isVerifiedHost && (
+                <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-full shrink-0 border border-indigo-100">
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  인증 주최자
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5 mb-4">
@@ -182,7 +190,7 @@ export default function EventCard({ event }) {
 
         {/* 오픈 예정 오버레이 */}
         {isUpcoming && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center rounded-3xl">
+          <div className="absolute inset-0 z-30 flex items-center justify-center rounded-3xl pointer-events-none">
             <div className="bg-white/90 shadow-sm rounded-2xl px-4 py-2.5 flex flex-col items-center gap-1">
               <span className="text-[12px] font-black text-gray-700 tracking-wide">오픈 예정</span>
               <span className="text-[10px] font-semibold text-gray-500 text-center">

@@ -35,7 +35,7 @@ export default function CheckIn() {
   })
 
   const mutation = useMutation({
-    mutationFn: checkin,
+    mutationFn: ({ qrCode, eventId }) => checkin(qrCode, eventId),
     onSuccess: (data) => {
       setResult(data)
       refetchStats()
@@ -50,7 +50,7 @@ export default function CheckIn() {
   const handleScan = (qrCode) => {
     if (mutation.isPending || !qrCode.trim()) return
     setResult(null)
-    mutation.mutate(qrCode.trim())
+    mutation.mutate({ qrCode: qrCode.trim(), eventId: id })
   }
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function CheckIn() {
             />
           </div>
 
-          <ul className="divide-y divide-gray-50 max-h-[480px] overflow-y-auto">
+          <ul className="divide-y divide-gray-50 max-h-[300px] lg:max-h-[480px] overflow-y-auto">
             {filtered.length === 0 ? (
               <li className="p-8 text-center text-sm text-gray-400">표시할 참가자가 없습니다.</li>
             ) : (

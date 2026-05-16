@@ -31,6 +31,16 @@ paymentRouter.post('/prepare', authMiddleware, async (req, res, next) => {
     }
     if (!event.isPaid) return res.status(400).json({ message: '무료 행사는 이 엔드포인트를 사용할 수 없습니다.' })
 
+    // BR-W03: 화이트리스트 학번이면 무료 신청 처리
+    if (user.studentId) {
+      const isOnWhitelist = await prisma.eventWhitelist.findFirst({
+        where: { eventId, entries: { some: { studentId: user.studentId } } },
+      })
+      if (isOnWhitelist) {
+        return res.status(400).json({ message: '학생회비 납부자로 등록되어 있습니다. 무료로 신청해주세요.', isWhitelisted: true })
+      }
+    }
+
     // BR-02: 동일 학교 사용자만 신청 가능
     if (user.schoolId !== event.schoolId) {
       return res.status(403).json({ message: '본인 학교 행사만 신청할 수 있습니다.' })
@@ -45,12 +55,6 @@ paymentRouter.post('/prepare', authMiddleware, async (req, res, next) => {
       },
     })
     if (activeReg) return res.status(409).json({ message: '이미 신청한 행사입니다.' })
-
-    // BR-09: 재신청 누적 횟수 3회 미만
-    const cancelledCount = await prisma.registration.count({
-      where: { eventId, userId, status: { in: ['CANCELLED', 'EXPIRED'] } },
-    })
-    if (cancelledCount >= 3) return res.status(400).json({ message: '재신청 가능 횟수를 초과했습니다. (최대 3회)' })
 
     // 정원 확인 + PENDING_PAYMENT 생성 (트랜잭션, BR-33)
     const registration = await prisma.$transaction(async (tx) => {

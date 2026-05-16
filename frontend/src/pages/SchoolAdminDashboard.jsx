@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getMySchoolUsers, updateMySchoolUserRole, getSchoolUserRegistrations, updateSchoolContact } from '../api/schoolAdmin'
+import { getMySchoolUsers, updateMySchoolUserRole, getSchoolUserRegistrations, updateSchoolContact, getSchoolAuditLogs } from '../api/schoolAdmin'
+import UserAvatar from '../components/UserAvatar'
 import { getSchoolCertRequests, approveCertRequest, rejectCertRequest } from '../api/certRequests'
 import { getMyEvents, publishEvent, deleteEvent } from '../api/events'
 import { useToast } from '../components/Toast'
@@ -127,6 +128,7 @@ export default function SchoolAdminDashboard() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('users')
+  const [auditFilter, setAuditFilter] = useState('ALL')
   const [contactInput, setContactInput] = useState('')
   const [contactEditing, setContactEditing] = useState(false)
   const [certActions, setCertActions] = useState({}) // { [id]: { type: 'approve'|'reject', value: '' } }
@@ -152,6 +154,13 @@ export default function SchoolAdminDashboard() {
       setContactEditing(false)
     },
     onError: (err) => toast(err.response?.data?.message || '저장에 실패했습니다.', 'error'),
+  })
+
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ['school-audit-logs'],
+    queryFn: getSchoolAuditLogs,
+    enabled: tab === 'audit',
+    staleTime: 30000,
   })
 
   // 행사 조회 (getMyEvents → SCHOOL_ADMIN이면 학교 전체 행사 반환)
@@ -293,6 +302,7 @@ export default function SchoolAdminDashboard() {
           { value: 'users',  label: '사용자 관리' },
           { value: 'events', label: '행사 관리' },
           { value: 'cert',   label: '인증 신청', badge: certRequests.length },
+          { value: 'audit',  label: '활동 로그' },
         ].map(t => (
           <button
             key={t.value}
@@ -525,7 +535,6 @@ export default function SchoolAdminDashboard() {
               <AnimatePresence initial={false}>
                 {certRequests.map(req => {
                   const action = certActions[req.id]
-                  const initials = req.user.name.slice(0, 1)
                   return (
                     <motion.div
                       key={req.id}
@@ -537,9 +546,7 @@ export default function SchoolAdminDashboard() {
                     >
                       {/* 신청자 정보 */}
                       <div className="flex items-center gap-4 px-5 py-4">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 font-bold text-base flex items-center justify-center shrink-0">
-                          {initials}
-                        </div>
+                        <UserAvatar user={req.user} size="lg" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-gray-900">{req.user.name}</p>
@@ -572,6 +579,19 @@ export default function SchoolAdminDashboard() {
                                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">연락처</p>
                                 <p className="text-sm text-gray-700 font-medium truncate">{req.contact}</p>
                               </div>
+                            )}
+                          </div>
+                        )}
+                        {req.organizationType && (
+                          <div className={`rounded-xl px-3 py-2.5 ${req.organizationType === 'STUDENT_COUNCIL' ? 'bg-purple-50' : 'bg-gray-50'}`}>
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">구분</p>
+                            <p className={`text-sm font-semibold ${req.organizationType === 'STUDENT_COUNCIL' ? 'text-purple-700' : 'text-gray-700'}`}>
+                              {req.organizationType === 'STUDENT_COUNCIL' ? '학생회' : '동아리'}
+                            </p>
+                            {req.expiresAt && (
+                              <p className="text-xs text-purple-500 mt-0.5">
+                                임기 만료일: {new Date(req.expiresAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                              </p>
                             )}
                           </div>
                         )}
@@ -668,6 +688,109 @@ export default function SchoolAdminDashboard() {
           )}
         </>
       )}
+
+      {tab === 'audit' && (() => {
+        const ACTION_META = {
+          CHANGE_ROLE:           { label: '역할 변경',    color: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400' },
+          REJECT_CERT:           { label: '인증 거절',    color: 'bg-red-100 text-red-600',      dot: 'bg-red-400' },
+          DELEGATION:            { label: '권한 위임',    color: 'bg-amber-100 text-amber-700',  dot: 'bg-amber-400' },
+          CREATE_EVENT:          { label: '행사 생성',    color: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-400' },
+          PUBLISH_EVENT:         { label: '행사 공개',    color: 'bg-green-100 text-green-700',  dot: 'bg-green-400' },
+          UPDATE_EVENT:          { label: '행사 수정',    color: 'bg-violet-100 text-violet-700',dot: 'bg-violet-400' },
+          CLOSE_EVENT:           { label: '행사 마감',    color: 'bg-gray-100 text-gray-600',    dot: 'bg-gray-400' },
+          DELETE_EVENT:          { label: '행사 삭제',    color: 'bg-red-100 text-red-600',      dot: 'bg-red-400' },
+          CHECKIN:               { label: '체크인',       color: 'bg-purple-100 text-purple-700',dot: 'bg-purple-400' },
+          UPDATE_SCHOOL_CONTACT: { label: '연락처 설정',  color: 'bg-cyan-100 text-cyan-700',    dot: 'bg-cyan-400' },
+          DOWNLOAD_REPORT:       { label: '리포트 다운',  color: 'bg-slate-100 text-slate-600',  dot: 'bg-slate-400' },
+        }
+
+        const filterActions = ['ALL', 'CHANGE_ROLE', 'DELEGATION', 'CREATE_EVENT', 'PUBLISH_EVENT', 'CHECKIN']
+        const filtered = auditFilter === 'ALL' ? auditLogs : auditLogs.filter(l => l.action === auditFilter)
+
+        // 날짜별 그룹핑
+        const grouped = filtered.reduce((acc, log) => {
+          const date = new Date(log.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+          if (!acc[date]) acc[date] = []
+          acc[date].push(log)
+          return acc
+        }, {})
+
+        return (
+          <div className="space-y-4">
+            {/* 필터 */}
+            <div className="flex gap-1.5 flex-wrap">
+              {filterActions.map(f => {
+                const meta = ACTION_META[f]
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setAuditFilter(f)}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${
+                      auditFilter === f
+                        ? f === 'ALL' ? 'bg-gray-800 text-white' : `${meta?.color} ring-2 ring-offset-1 ring-current`
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {f === 'ALL' ? '전체' : meta?.label || f}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 로그 카운트 */}
+            <p className="text-xs text-gray-400">
+              총 <span className="font-semibold text-gray-600">{filtered.length}건</span>의 활동 로그
+            </p>
+
+            {filtered.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-400">해당 조건의 로그가 없습니다.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(grouped).map(([date, logs]) => (
+                  <div key={date}>
+                    {/* 날짜 구분선 */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-xs font-semibold text-gray-400 whitespace-nowrap">{date}</span>
+                      <div className="flex-1 h-px bg-gray-100" />
+                    </div>
+                    <div className="space-y-2">
+                      {logs.map(log => {
+                        const meta = ACTION_META[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-300' }
+                        const time = new Date(log.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+                        return (
+                          <div key={log.id} className="flex items-start gap-3 bg-white border border-gray-100 rounded-xl px-4 py-3 hover:border-gray-200 transition">
+                            <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${meta.color}`}>
+                                  {meta.label}
+                                </span>
+                                <span className="text-sm text-gray-700">{log.detail || '-'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs font-medium text-gray-500">{log.admin?.name}</span>
+                                <span className="text-xs text-gray-300">·</span>
+                                <span className="text-xs text-gray-400">{time}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {ticketUser && (
         <UserTicketsModal

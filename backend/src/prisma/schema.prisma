@@ -36,10 +36,16 @@ model User {
   questions              EventQuestion[] @relation("QuestionAuthor")
   answers                QuestionAnswer[] @relation("AnswerAuthor")
   reviews                Review[]         @relation("ReviewAuthor")
+  roleExpiresAt          DateTime?
+  organizationType       OrgType?
+  profileImageUrl        String?
   hostRating             Float?
   ratingCount            Int              @default(0)
   certRequests           CertificationRequest[] @relation("CertRequests")
   certReviewed           CertificationRequest[] @relation("CertReqReviewer")
+  delegationsFrom        DelegationRequest[]    @relation("DelegationFrom")
+  delegationsTo          DelegationRequest[]    @relation("DelegationTo")
+  bookmarks              EventBookmark[]        @relation("Bookmarks")
   coHostedEvents         EventCoHost[]          @relation("CoHostedEvents")
 
   @@unique([studentId, schoolId])
@@ -56,7 +62,8 @@ model School {
   events       Event[]
   users        User[]
   notices      Notice[]
-  certRequests CertificationRequest[]
+  certRequests      CertificationRequest[]
+  delegationRequests DelegationRequest[]
 }
 
 model Event {
@@ -93,6 +100,7 @@ model Event {
   questions               EventQuestion[]
   reviews                 Review[]
   coHosts                 EventCoHost[]
+  bookmarks               EventBookmark[]
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   deletedAt               DateTime?
@@ -240,10 +248,12 @@ model CertificationRequest {
   user         User          @relation("CertRequests", fields: [userId], references: [id])
   schoolId     String
   school       School        @relation(fields: [schoolId], references: [id])
-  message      String?
-  organization String?
-  contact      String?
-  status       CertReqStatus @default(PENDING)
+  message          String?
+  organization     String?
+  contact          String?
+  organizationType OrgType   @default(CLUB)
+  expiresAt        DateTime?
+  status           CertReqStatus @default(PENDING)
   reviewNote   String?
   reviewedById String?
   reviewedBy   User?         @relation("CertReqReviewer", fields: [reviewedById], references: [id])
@@ -255,6 +265,22 @@ enum CertReqStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum OrgType {
+  STUDENT_COUNCIL
+  CLUB
+}
+
+model DelegationRequest {
+  id         String   @id @default(cuid())
+  fromUserId String
+  fromUser   User     @relation("DelegationFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User     @relation("DelegationTo", fields: [toUserId], references: [id])
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  createdAt  DateTime @default(now())
 }
 
 model EventQuestion {
@@ -296,6 +322,17 @@ model Review {
   lockedAt    DateTime?
 
   @@unique([eventId, authorId])
+}
+
+model EventBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("Bookmarks", fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
 }
 
 model EventCoHost {

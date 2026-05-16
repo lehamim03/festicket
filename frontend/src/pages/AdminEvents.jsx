@@ -134,7 +134,7 @@ export default function AdminEvents() {
       ) : filtered.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">표시할 행사가 없습니다.</div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>

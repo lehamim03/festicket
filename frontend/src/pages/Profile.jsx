@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, deleteMe } from '../api/auth'
 import { useToast } from '../components/Toast'
+import api from '../api/axios'
 
 function Section({ title, children }) {
   return (
@@ -69,10 +70,49 @@ export default function Profile() {
   const { user, updateUser, logout } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
+  const queryClient = useQueryClient()
+  const fileInputRef = useRef(null)
   const [showWithdraw, setShowWithdraw] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState(null)
 
   const [info, setInfo] = useState({ name: user?.name || '', studentId: user?.studentId || '' })
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '', confirm: '' })
+
+  const uploadImageMutation = useMutation({
+    mutationFn: (file) => {
+      const formData = new FormData()
+      formData.append('image', file)
+      return api.post('/auth/profile-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }).then(r => r.data)
+    },
+    onSuccess: (data) => {
+      updateUser({ ...user, profileImageUrl: data.profileImageUrl })
+      setPreviewUrl(null)
+      queryClient.invalidateQueries({ queryKey: ['me'] })
+      toast('프로필 사진이 변경되었습니다.', 'success')
+    },
+    onError: (err) => toast(err.response?.data?.message || '업로드에 실패했습니다.', 'error'),
+  })
+
+  const deleteImageMutation = useMutation({
+    mutationFn: () => api.delete('/auth/profile-image').then(r => r.data),
+    onSuccess: () => {
+      updateUser({ ...user, profileImageUrl: null })
+      setPreviewUrl(null)
+      toast('프로필 사진이 삭제되었습니다.', 'success')
+    },
+    onError: () => toast('삭제에 실패했습니다.', 'error'),
+  })
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) return toast('파일 크기는 3MB 이하여야 합니다.', 'error')
+    setPreviewUrl(URL.createObjectURL(file))
+    uploadImageMutation.mutate(file)
+    e.target.value = ''
+  }
 
   const updateInfoMutation = useMutation({
     mutationFn: () => updateMe({ name: info.name, studentId: info.studentId || null }),
@@ -125,6 +165,58 @@ export default function Profile() {
         <p className="text-sm text-gray-400 mt-0.5">{user?.email}</p>
       </div>
 
+      {/* 프로필 사진 */}
+      <Section title="프로필 사진">
+        <div className="flex items-center gap-5">
+          {/* 아바타 */}
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center border-2 border-gray-100">
+              {(previewUrl || user?.profileImageUrl) ? (
+                <img src={previewUrl || user.profileImageUrl} alt="프로필" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-black text-primary-600">{user?.name?.slice(0, 1) ?? '?'}</span>
+              )}
+            </div>
+            {uploadImageMutation.isPending && (
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+
+          {/* 버튼 */}
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadImageMutation.isPending}
+              className="btn-primary text-sm px-4 py-2 disabled:opacity-50"
+            >
+              {uploadImageMutation.isPending ? '업로드 중...' : '사진 변경'}
+            </button>
+            {user?.profileImageUrl && (
+              <button
+                type="button"
+                onClick={() => deleteImageMutation.mutate()}
+                disabled={deleteImageMutation.isPending}
+                className="text-xs text-red-400 hover:text-red-600 transition disabled:opacity-50"
+              >
+                {deleteImageMutation.isPending ? '삭제 중...' : '사진 삭제'}
+              </button>
+            )}
+            <p className="text-xs text-gray-400">JPG · PNG · WEBP, 최대 3MB</p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      </Section>
+
       {/* 기본 정보 */}
       <Section title="기본 정보">
         <form onSubmit={handleInfoSubmit} className="space-y-4">
@@ -164,6 +256,21 @@ export default function Profile() {
               </span>
               {user?.roleMemo && (
                 <span className="text-xs text-gray-400">{user.roleMemo}</span>
+              )}
+              {user?.roleExpiresAt && (
+                (() => {
+                  const days = Math.ceil((new Date(user.roleExpiresAt) - new Date()) / 86400000)
+                  return (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${
+                      days <= 3 ? 'bg-red-100 text-red-600' :
+                      days <= 7 ? 'bg-amber-100 text-amber-600' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      임기 만료일: {new Date(user.roleExpiresAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      {days > 0 ? ` (D-${days})` : ' (오늘 만료)'}
+                    </span>
+                  )
+                })()
               )}
             </div>
           </div>

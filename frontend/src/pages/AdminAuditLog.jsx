@@ -12,6 +12,7 @@ const ACTION_META = {
   ADMIN_CANCEL:          { label: '티켓 강제취소', color: 'bg-rose-100 text-rose-600' },
   EDIT_USER:             { label: '사용자 수정',  color: 'bg-sky-100 text-sky-700' },
   CHANGE_ROLE:           { label: '역할 변경',    color: 'bg-blue-100 text-blue-700' },
+  DELEGATION:            { label: '권한 위임',    color: 'bg-amber-100 text-amber-700' },
   REJECT_CERT:           { label: '인증 거절',    color: 'bg-red-100 text-red-600' },
   CREATE_EVENT:          { label: '행사 생성',    color: 'bg-indigo-100 text-indigo-700' },
   PUBLISH_EVENT:         { label: '행사 공개',    color: 'bg-green-100 text-green-700' },

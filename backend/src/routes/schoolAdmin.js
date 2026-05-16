@@ -168,7 +168,12 @@ router.post('/cert-requests/:id/approve', authMiddleware, SCHOOL_ADMIN, async (r
       }),
       prisma.user.update({
         where: { id: request.userId },
-        data: { role: 'CERTIFIED', roleMemo: memo?.trim() || null }
+        data: {
+          role: 'CERTIFIED',
+          roleMemo: memo?.trim() || null,
+          organizationType: request.organizationType,
+          roleExpiresAt: request.organizationType === 'STUDENT_COUNCIL' ? request.expiresAt : null,
+        }
       })
     ])
 
@@ -216,6 +221,30 @@ router.post('/cert-requests/:id/reject', authMiddleware, SCHOOL_ADMIN, async (re
     audit(req.user.id, 'REJECT_CERT', 'USER', request.userId,
       `${request.user.name} 인증 신청 거절 · ${reason.trim()}`)
     res.json({ message: '거절되었습니다.' })
+  } catch (err) { next(err) }
+})
+
+// GET /api/school-admin/audit-logs — 자교 감사 로그 조회
+router.get('/audit-logs', authMiddleware, SCHOOL_ADMIN, async (req, res, next) => {
+  try {
+    const schoolId = req.user.schoolId
+    if (!schoolId) return res.status(403).json({ message: '소속 학교가 없습니다.' })
+
+    // 자교 소속 유저들의 adminId로 필터
+    const schoolUserIds = await prisma.user.findMany({
+      where: { schoolId, deletedAt: null },
+      select: { id: true }
+    }).then(users => users.map(u => u.id))
+
+    const logs = await prisma.auditLog.findMany({
+      where: { adminId: { in: schoolUserIds } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: {
+        admin: { select: { id: true, name: true, email: true, role: true } }
+      }
+    })
+    res.json(logs)
   } catch (err) { next(err) }
 })
 

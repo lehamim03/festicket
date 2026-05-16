@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
 import { getMyRegistrations, cancelFreeRegistration } from '../api/registrations'
 import { cancelPaidRegistration, cancelPendingPayment } from '../api/payments'
+import TicketCalendar from '../components/TicketCalendar'
 
 function fmtDateTime(iso) {
   if (!iso) return ''
@@ -22,6 +23,7 @@ const STATUS_LABEL = {
 
 export default function MyTickets() {
   const [tab, setTab] = useState('active')
+  const [view, setView] = useState('list')
   const queryClient = useQueryClient()
 
   const { data: regs = [], isLoading } = useQuery({
@@ -58,14 +60,44 @@ export default function MyTickets() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">내 티켓</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">내 티켓</h1>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+          <button
+            onClick={() => setView('list')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${view === 'list' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            목록
+          </button>
+          <button
+            onClick={() => setView('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${view === 'calendar' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            캘린더
+          </button>
+        </div>
+      </div>
 
+      {view === 'calendar' ? (
+        <div className="card p-5">
+          <TicketCalendar registrations={regs} />
+        </div>
+      ) : null}
+
+      {view === 'list' && (
       <div className="flex gap-2">
         <TabButton active={tab === 'active'} onClick={() => setTab('active')}>활성</TabButton>
         <TabButton active={tab === 'archived'} onClick={() => setTab('archived')}>지난 신청</TabButton>
       </div>
+      )}
 
-      {isLoading ? (
+      {view === 'list' && (isLoading ? (
         <div className="card p-12 text-center text-gray-500">불러오는 중...</div>
       ) : regs.length === 0 ? (
         <div className="card p-12 text-center text-gray-500">표시할 신청이 없습니다.</div>
@@ -80,15 +112,16 @@ export default function MyTickets() {
             />
           ))}
         </ul>
-      )}
+      ))}
     </div>
   )
 }
 
 function TicketItem({ r, tab, onCancel, onRefund, onCancelPending }) {
   const [showQR, setShowQR] = useState(false)
+  const refundDeadlinePassed = r.event.refundDeadlineAt && new Date() > new Date(r.event.refundDeadlineAt)
   const canCancel = tab === 'active' && r.status === 'CONFIRMED' && !r.event.isPaid
-  const canRefund = tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid
+  const canRefund = tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && !refundDeadlinePassed
   const canCancelPending = tab === 'active' && r.status === 'PENDING_PAYMENT'
   const showQRBtn = r.status === 'CONFIRMED' || r.status === 'CHECKED_IN'
 
@@ -135,6 +168,9 @@ function TicketItem({ r, tab, onCancel, onRefund, onCancelPending }) {
             >
               환불 신청
             </button>
+          )}
+          {tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && refundDeadlinePassed && (
+            <span className="text-xs text-gray-400 px-3 py-1.5">환불 마감</span>
           )}
           {canCancelPending && (
             <button

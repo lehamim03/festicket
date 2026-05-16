@@ -21,8 +21,6 @@ router.post('/', authMiddleware, async (req, res, next) => {
     })
 
     if (!registration) return res.json({ ok: false, reason: '유효하지 않은 QR' })
-    if (registration.status === 'CHECKED_IN') return res.json({ ok: false, reason: '이미 체크인됨' })
-    if (registration.status !== 'CONFIRMED') return res.json({ ok: false, reason: '유효하지 않은 티켓' })
 
     // SCHOOL_ADMIN / OPERATOR도 허용, 그 외는 호스트만
     const isHost = registration.event.hostId === req.user.id
@@ -30,6 +28,15 @@ router.post('/', authMiddleware, async (req, res, next) => {
     if (!isHost && !isAdmin) {
       return res.status(403).json({ ok: false, reason: '권한이 없습니다.' })
     }
+
+    // 행사 일치 여부 먼저 확인
+    if (registration.event.id !== req.body.eventId && req.body.eventId) {
+      return res.json({ ok: false, reason: '이 행사의 티켓이 아닙니다.' })
+    }
+
+    if (registration.status === 'CHECKED_IN') return res.json({ ok: false, reason: '이미 체크인됨' })
+    if (registration.status === 'CANCELLED') return res.json({ ok: false, reason: '취소된 티켓입니다.' })
+    if (registration.status !== 'CONFIRMED') return res.json({ ok: false, reason: '유효하지 않은 티켓' })
 
     // 트랜잭션으로 중복 체크인 원자적 방지
     let alreadyDone = false

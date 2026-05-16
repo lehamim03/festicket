@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import KakaoCallback from './pages/KakaoCallback'
@@ -21,6 +21,8 @@ import EventCreate from './pages/EventCreate'
 import EventEdit from './pages/EventEdit'
 import EventManage from './pages/EventManage'
 import MyTickets from './pages/MyTickets'
+import MyBookmarks from './pages/MyBookmarks'
+import SchoolEvents from './pages/SchoolEvents'
 import MyEvents from './pages/MyEvents'
 import CheckIn from './pages/CheckIn'
 import Profile from './pages/Profile'
@@ -28,6 +30,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentFail from './pages/PaymentFail'
+import PaymentResult from './pages/PaymentResult'
 import Header from './components/Header'
 import Notices from './pages/Notices'
 import NoticeDetail from './pages/NoticeDetail'
@@ -38,6 +41,8 @@ import AdminInquiries from './pages/AdminInquiries'
 import Footer from './components/Footer'
 
 export default function App() {
+  const location = useLocation()
+
   return (
     <div className="min-h-screen bg-[#e9e4ff]">
       <Header />
@@ -49,7 +54,7 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><Home /></div></PrivateRoute>} />
+        <Route path="/" element={<div className="max-w-6xl mx-auto px-4 py-6"><Home /></div>} />
         <Route path="/events/create" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><EventCreate /></div></PrivateRoute>} />
         <Route path="/events/:id/edit" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><EventEdit /></div></PrivateRoute>} />
         <Route path="/events/:id/manage" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><EventManage /></div></PrivateRoute>} />
@@ -61,6 +66,8 @@ export default function App() {
         <Route path="/events/new" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><EventCreate /></div></PrivateRoute>} />
         {/* UC-13 내 티켓 */}
         <Route path="/my-tickets" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><MyTickets /></div></PrivateRoute>} />
+        <Route path="/my-bookmarks" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><MyBookmarks /></div></PrivateRoute>} />
+        <Route path="/schools/:schoolId/events" element={<SchoolEvents />} />
         <Route path="/my-events" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><MyEvents /></div></PrivateRoute>} />
         <Route path="/events/:id/checkin" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><CheckIn /></div></PrivateRoute>} />
         <Route path="/admin" element={<OperatorRoute><div className="max-w-6xl mx-auto px-4 py-6"><OperatorDashboard /></div></OperatorRoute>} />
@@ -72,6 +79,7 @@ export default function App() {
         <Route path="/admin/schools/:schoolId" element={<OperatorRoute><SchoolDetail /></OperatorRoute>} />
         <Route path="/payment/success" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><PaymentSuccess /></div></PrivateRoute>} />
         <Route path="/payment/fail" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><PaymentFail /></div></PrivateRoute>} />
+        <Route path="/payment/result" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><PaymentResult /></div></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/school-admin" element={<SchoolAdminRoute><SchoolAdminDashboard /></SchoolAdminRoute>} />
         <Route path="/school-admin/notices" element={<SchoolAdminRoute><div className="max-w-6xl mx-auto px-4 py-6"><SchoolAdminNotices /></div></SchoolAdminRoute>} />

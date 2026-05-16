@@ -11,3 +11,6 @@ export const getSchoolUserRegistrations = (userId) =>
 
 export const updateSchoolContact = (adminContact) =>
   api.put('/school-admin/contact', { adminContact }).then(r => r.data)
+
+export const getSchoolAuditLogs = () =>
+  api.get('/school-admin/audit-logs').then(r => r.data)

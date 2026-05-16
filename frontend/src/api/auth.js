@@ -20,8 +20,8 @@ export const verifyEmail = async (token) => {
   return res.data
 }
 
-export const resendVerification = async () => {
-  const res = await api.post('/auth/resend-verification')
+export const resendVerification = async (email) => {
+  const res = await api.post('/auth/resend-verification', email ? { email } : {})
   return res.data
 }
 

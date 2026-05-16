@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import NotificationBell from './NotificationBell'
 import InquiryModal from './InquiryModal'
 import CertRequestModal from './CertRequestModal'
+import DelegationModal from './DelegationModal'
+import UserAvatar from './UserAvatar'
 
 const ROLE_LABEL = {
   ATTENDEE: '일반',
@@ -25,6 +27,7 @@ export default function Header() {
   const [open, setOpen] = useState(false)
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [certOpen, setCertOpen] = useState(false)
+  const [delegationOpen, setDelegationOpen] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -39,20 +42,51 @@ export default function Header() {
     setOpen(false)
   }
 
+  const expiryDaysLeft = (() => {
+    if (!user?.roleExpiresAt) return null
+    const diff = new Date(user.roleExpiresAt) - new Date()
+    const days = Math.ceil(diff / 86400000)
+    return days <= 7 ? days : null
+  })()
+
   return (
     <>
+    {expiryDaysLeft !== null && (
+      <div className={`w-full text-center text-sm font-semibold py-2 px-4 flex items-center justify-center gap-3 ${
+        expiryDaysLeft <= 3 ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-900'
+      }`}>
+        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        {expiryDaysLeft <= 0
+          ? '인증주최자 임기가 오늘 만료됩니다.'
+          : `인증주최자 권한이 ${expiryDaysLeft}일 후 만료됩니다.`
+        }
+        &nbsp;
+        {user?.organizationType === 'CLUB' ? (
+          <button
+            onClick={() => setDelegationOpen(true)}
+            className="underline font-bold hover:opacity-80 transition"
+          >
+            지금 위임하기 →
+          </button>
+        ) : (
+          <span className="font-bold">재신청이 필요합니다.</span>
+        )}
+      </div>
+    )}
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
           <img src="/logo6.png" alt="페스티켓 로고" className="h-8 w-auto" />
-          <span className="font-black text-primary-600 text-lg tracking-tight">페스티켓</span>
+          <span className="font-black text-primary-600 text-lg tracking-tight whitespace-nowrap">페스티켓</span>
         </Link>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 min-w-0">
           {user && <NotificationBell />}
           <Link
             to="/notices"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition"
+            className="hidden sm:block text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition whitespace-nowrap"
           >
             공지사항
           </Link>
@@ -64,11 +98,9 @@ export default function Header() {
                 onClick={() => setOpen(v => !v)}
                 className="flex items-center gap-2.5 hover:bg-gray-50 rounded-xl px-3 py-1.5 transition"
               >
-                <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">
-                  {user.name[0]}
-                </div>
-                <span className="text-sm font-semibold text-gray-800">{user.name}님</span>
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${ROLE_COLOR[user.role]}`}>
+                <UserAvatar user={user} size="sm" />
+                <span className="text-sm font-semibold text-gray-800 max-w-[60px] sm:max-w-none truncate">{user.name}님</span>
+                <span className={`hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${ROLE_COLOR[user.role]}`}>
                   {ROLE_LABEL[user.role]}
                 </span>
                 <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,7 +109,7 @@ export default function Header() {
               </button>
 
               {open && (
-                <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-100 rounded-2xl shadow-modal py-1.5 text-sm">
+                <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-1rem)] bg-white border border-gray-100 rounded-2xl shadow-modal py-1.5 text-sm">
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <p className="font-semibold text-gray-900">{user.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>
@@ -123,6 +155,16 @@ export default function Header() {
                   )}
 
                   <Link
+                    to="/notices"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition sm:hidden"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                    공지사항
+                  </Link>
+                  <Link
                     to="/my-tickets"
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
@@ -131,6 +173,16 @@ export default function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                     </svg>
                     내 티켓
+                  </Link>
+                  <Link
+                    to="/my-bookmarks"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                    </svg>
+                    즐겨찾기
                   </Link>
 
                   {user.role === 'ATTENDEE' && user.schoolId && (
@@ -142,6 +194,18 @@ export default function Header() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                       </svg>
                       인증주최자 신청
+                    </button>
+                  )}
+
+                  {user.role === 'CERTIFIED' && user.organizationType === 'CLUB' && (
+                    <button
+                      onClick={() => { setOpen(false); setDelegationOpen(true) }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-amber-600 hover:bg-amber-50 transition"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                      권한 위임
                     </button>
                   )}
 
@@ -219,6 +283,7 @@ export default function Header() {
 
     {inquiryOpen && <InquiryModal onClose={() => setInquiryOpen(false)} />}
     {certOpen && <CertRequestModal onClose={() => setCertOpen(false)} />}
+    {delegationOpen && <DelegationModal onClose={() => setDelegationOpen(false)} />}
     </>
   )
 }

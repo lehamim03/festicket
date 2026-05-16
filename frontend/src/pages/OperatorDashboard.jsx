@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminStats } from '../api/admin'
+import UserAvatar from '../components/UserAvatar'
 
 function fmtDate(iso) {
   if (!iso) return ''
@@ -42,7 +43,7 @@ export default function OperatorDashboard() {
     return (
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="h-8 w-48 bg-gray-100 rounded-full animate-pulse" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <div key={i} className="card p-5 h-24 animate-pulse bg-gray-50" />)}
         </div>
       </div>
@@ -92,7 +93,7 @@ export default function OperatorDashboard() {
       {/* 통계 카드 */}
       <div>
         <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">전체 통계</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="등록 학교" value={stats?.schools} color="text-indigo-600" />
           <StatCard
             label="전체 사용자"
@@ -117,7 +118,7 @@ export default function OperatorDashboard() {
       {/* 역할별 사용자 분포 */}
       <div>
         <h2 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">역할별 사용자</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {['ATTENDEE', 'CERTIFIED', 'SCHOOL_ADMIN', 'OPERATOR'].map(role => (
             <div key={role} className="card p-4 flex items-center gap-3">
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ROLE_COLOR[role]}`}>
@@ -144,9 +145,7 @@ export default function OperatorDashboard() {
             ) : (
               stats.recentUsers.map(user => (
                 <li key={user.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs shrink-0">
-                    {user.name[0]}
-                  </div>
+                  <UserAvatar user={user} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-semibold text-gray-800 truncate">{user.name}</span>

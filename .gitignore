@@ -5,3 +5,9 @@ CLAUDE.md
 db*.md
 *.docx
 프로젝트개요.md
+
+# 포스터
+poster.html
+festicket-poster*.png
+frontend/src/pages/Poster.jsx
+사용자관리_테스트케이스.csv

@@ -9,9 +9,19 @@ const prisma = new PrismaClient()
 // POST /api/cert-requests — 인증주최자 신청
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
-    const { message, organization, contact } = req.body
+    const { message, organization, contact, organizationType, expiresAt } = req.body
     if (!organization?.trim()) return res.status(400).json({ message: '소속 단체/직책을 입력해주세요.' })
     if (!contact?.trim()) return res.status(400).json({ message: '연락처를 입력해주세요.' })
+    if (!['STUDENT_COUNCIL', 'CLUB'].includes(organizationType)) {
+      return res.status(400).json({ message: '구분을 선택해주세요.' })
+    }
+    if (organizationType === 'STUDENT_COUNCIL') {
+      if (!expiresAt) return res.status(400).json({ message: '학생회는 임기 만료일을 입력해주세요.' })
+      const expiresDate = new Date(expiresAt)
+      if (isNaN(expiresDate.getTime()) || expiresDate <= new Date()) {
+        return res.status(400).json({ message: '만료일은 오늘 이후 날짜여야 합니다.' })
+      }
+    }
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, name: true, role: true, schoolId: true }
@@ -45,6 +55,8 @@ router.post('/', authMiddleware, async (req, res, next) => {
         message: message?.trim() || null,
         organization: organization?.trim() || null,
         contact: contact?.trim() || null,
+        organizationType,
+        expiresAt: organizationType === 'STUDENT_COUNCIL' ? new Date(expiresAt) : null,
       }
     })
 
@@ -69,7 +81,7 @@ router.get('/mine', authMiddleware, async (req, res, next) => {
       take: 5,
       select: {
         id: true, status: true, message: true, organization: true, contact: true,
-        reviewNote: true, createdAt: true,
+        organizationType: true, expiresAt: true, reviewNote: true, createdAt: true,
         reviewedBy: { select: { name: true } }
       }
     })

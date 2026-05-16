@@ -33,7 +33,7 @@ router.get('/stats', authMiddleware, OPERATOR, async (req, res, next) => {
         where: { deletedAt: null },
         orderBy: { createdAt: 'desc' },
         take: 5,
-        select: { id: true, name: true, email: true, role: true, createdAt: true, school: { select: { name: true } } },
+        select: { id: true, name: true, email: true, role: true, createdAt: true, profileImageUrl: true, school: { select: { name: true } } },
       }),
       prisma.event.findMany({
         where: { deletedAt: null },

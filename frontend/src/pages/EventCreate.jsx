@@ -308,7 +308,7 @@ export default function EventCreate() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="flex gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* ── 왼쪽: 입력 폼 ── */}
           <div className="flex-1 min-w-0 space-y-4">
 
@@ -511,7 +511,7 @@ export default function EventCreate() {
           </div>
 
           {/* ── 오른쪽: 카드 미리보기 (sticky) ── */}
-          <div className="w-[320px] shrink-0 sticky top-6">
+          <div className="w-full lg:w-[320px] shrink-0 lg:sticky top-6">
             <div className="bg-white rounded-3xl border border-gray-100 shadow-card p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">

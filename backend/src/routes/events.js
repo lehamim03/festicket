@@ -341,7 +341,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const events = await prisma.event.findMany({
       where,
       include: {
-        host: { select: { id: true, name: true } },
+        host: { select: { id: true, name: true, profileImageUrl: true } },
         school: { select: { id: true, name: true } },
         _count: {
           select: { registrations: { where: { status: { in: ACTIVE_STATUSES } } } },
@@ -366,6 +366,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
             id: true, name: true, email: true,
             role: true, roleMemo: true,
             hostRating: true, ratingCount: true,
+            profileImageUrl: true,
             school: { select: { name: true } },
           },
         },

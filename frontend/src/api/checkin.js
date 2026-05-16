@@ -1,7 +1,7 @@
 import api from './axios'
 
-export const checkin = async (qrCode) => {
-  const res = await api.post('/v1/checkin', { qrCode })
+export const checkin = async (qrCode, eventId) => {
+  const res = await api.post('/v1/checkin', { qrCode, eventId })
   return res.data
 }
 

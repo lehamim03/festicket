@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getEvent, publishEvent, closeEvent, getNextRelease } from '../api/events'
 import { createFreeRegistration, cancelFreeRegistration } from '../api/registrations'
 import { preparePayment, cancelPaidRegistration, cancelPendingPayment } from '../api/payments'
+import { getBookmarkIds } from '../api/bookmarks'
+import BookmarkButton from '../components/BookmarkButton'
+import UserAvatar from '../components/UserAvatar'
 import { useAuth } from '../hooks/useAuth'
 import EventWhitelistManager from '../components/EventWhitelistManager'
 import EventParticipantManager from '../components/EventParticipantManager'
@@ -81,9 +84,7 @@ function HostCard({ host, hostEventCount }) {
       <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">주최자</div>
 
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-100 to-purple-100 flex items-center justify-center shrink-0">
-          <span className="text-base font-bold text-primary-600">{host.name?.[0] ?? '?'}</span>
-        </div>
+        <UserAvatar user={host} size="lg" className="rounded-2xl" />
         <div className="min-w-0">
           <div className="font-bold text-gray-900 text-sm truncate">{host.name}</div>
           {host.school?.name && (
@@ -292,6 +293,13 @@ export default function EventDetail() {
     queryFn: () => getEvent(id),
   })
 
+  const { data: bookmarkedIds = [] } = useQuery({
+    queryKey: ['bookmark-ids'],
+    queryFn: getBookmarkIds,
+    enabled: !!user,
+    staleTime: 60000,
+  })
+
   const applyMutation = useMutation({
     mutationFn: () => createFreeRegistration(id),
     onSuccess: (res) => {
@@ -355,7 +363,18 @@ export default function EventDetail() {
   const handlePaidRegistration = async () => {
     setIsPaying(true)
     try {
-      const { orderId, amount, eventTitle } = await preparePayment(event.id)
+      let orderId, amount, eventTitle
+      try {
+        const res = await preparePayment(event.id)
+        orderId = res.orderId; amount = res.amount; eventTitle = res.eventTitle
+      } catch (err) {
+        if (err.response?.data?.isWhitelisted) {
+          setIsPaying(false)
+          applyMutation.mutate()
+          return
+        }
+        throw err
+      }
 
       await new Promise((resolve, reject) => {
         if (window.TossPayments) return resolve()
@@ -372,8 +391,8 @@ export default function EventDetail() {
         orderId,
         orderName: eventTitle,
         customerName: user.name,
-        successUrl: `${window.location.origin}/payment/success`,
-        failUrl: `${window.location.origin}/payment/fail`,
+        successUrl: `${window.location.origin}/payment/result`,
+        failUrl: `${window.location.origin}/payment/result`,
       })
     } catch (err) {
       alert(err.response?.data?.message ?? err.message ?? '결제 준비에 실패했습니다.')
@@ -386,6 +405,7 @@ export default function EventDetail() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
 
   if (isLoading) {
     return (
@@ -432,16 +452,21 @@ export default function EventDetail() {
           </svg>
         </button>
 
-        {/* 좋아요 버튼 */}
-        <button className="absolute top-3.5 right-3.5 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full shadow-sm flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        </button>
+        {/* 즐겨찾기 버튼 */}
+        <div className="absolute top-3.5 right-3.5 flex flex-col items-center gap-0.5">
+          <BookmarkButton
+            eventId={event.id}
+            isBookmarked={bookmarkedIds.includes(event.id)}
+            className="w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full shadow-sm hover:bg-white"
+          />
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-sm">
+            {bookmarkedIds.includes(event.id) ? '저장됨' : '즐겨찾기'}
+          </span>
+        </div>
       </div>
 
       {/* ── 본문 2컬럼 ── */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
 
         {/* 왼쪽: 정보 */}
         <div className="flex-1 min-w-0 space-y-4">
@@ -610,7 +635,7 @@ export default function EventDetail() {
         </div>
 
         {/* 오른쪽: 신청 카드 + 주최자 카드 (sticky) */}
-        <div className="w-60 shrink-0 sticky top-6 space-y-4">
+        <div className="w-full lg:w-60 shrink-0 lg:sticky top-6 space-y-4">
           <RegistrationCard
             event={event}
             user={user}

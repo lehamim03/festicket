@@ -89,7 +89,7 @@ export default function EventWhitelistManager({ eventId, hideTitle = false }) {
             <input
               type="text"
               className="input flex-1"
-              placeholder="학번 입력 (예: 20235272)"
+              placeholder="학번 입력 (예: 12345678)"
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
               onKeyDown={(e) => {
