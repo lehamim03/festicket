@@ -21,7 +21,8 @@ export default function DelegationModal({ onClose }) {
     try {
       const res = await api.get('/delegations/search', { params: { q: value } })
       setSearchResults(res.data)
-    } catch {
+    } catch (err) {
+      toast(err.response?.data?.message || '검색에 실패했습니다.', 'error')
       setSearchResults([])
     } finally {
       setSearching(false)

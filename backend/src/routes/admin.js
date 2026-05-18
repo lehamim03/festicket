@@ -184,7 +184,7 @@ router.patch('/users/:userId', authMiddleware, OPERATOR, async (req, res, next) 
 // PUT /api/admin/users/:userId/role — 역할 변경 (운영자)
 router.put('/users/:userId/role', authMiddleware, OPERATOR, async (req, res, next) => {
   try {
-    const { role, memo } = req.body
+    const { role, memo, organizationType } = req.body
     const VALID_ROLES = ['ATTENDEE', 'CERTIFIED', 'SCHOOL_ADMIN', 'OPERATOR']
 
     if (!VALID_ROLES.includes(role)) {
@@ -196,22 +196,14 @@ router.put('/users/:userId/role', authMiddleware, OPERATOR, async (req, res, nex
     })
     if (!target) return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' })
 
-    // 학교총관리자 임명 시 기존 총관리자 확인 (BR-A06)
-    if (role === 'SCHOOL_ADMIN' && target.schoolId) {
-      const existing = await prisma.user.findFirst({
-        where: { schoolId: target.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null, NOT: { id: target.id } }
-      })
-      if (existing) {
-        return res.status(409).json({
-          message: `이미 총관리자(${existing.name})가 있습니다. 먼저 해제해주세요.`
-        })
-      }
-    }
-
     const updated = await prisma.user.update({
       where: { id: req.params.userId },
-      data: { role, roleMemo: role === 'ATTENDEE' ? null : (memo?.trim() || null) },
-      select: { id: true, name: true, email: true, role: true, roleMemo: true }
+      data: {
+        role,
+        roleMemo: role === 'ATTENDEE' ? null : (memo?.trim() || null),
+        organizationType: role === 'SCHOOL_ADMIN' ? (organizationType || null) : (role === 'ATTENDEE' ? null : undefined),
+      },
+      select: { id: true, name: true, email: true, role: true, roleMemo: true, organizationType: true }
     })
     const detail = memo?.trim()
       ? `${target.role} → ${role} (${target.name}) · ${memo.trim()}`
@@ -251,6 +243,115 @@ router.post('/registrations/:id/cancel', authMiddleware, OPERATOR, async (req, r
     audit(req.user.id, 'ADMIN_CANCEL', 'REGISTRATION', req.params.id,
       `${registration.user.name} · ${registration.event.title}`)
     res.json({ message: '취소되었습니다.' })
+  } catch (err) { next(err) }
+})
+
+// GET /api/admin/cert-requests — 인증주최자 신청 전체 조회 (운영자)
+router.get('/cert-requests', authMiddleware, OPERATOR, async (req, res, next) => {
+  try {
+    const { status, schoolId, search } = req.query
+    const where = {}
+    if (status) where.status = status
+    if (schoolId) where.schoolId = schoolId
+    if (search) {
+      where.OR = [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { organization: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const requests = await prisma.certificationRequest.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true, email: true, studentId: true } },
+        school: { select: { id: true, name: true } },
+        targetAdmin: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    })
+    res.json(requests)
+  } catch (err) { next(err) }
+})
+
+// POST /api/admin/cert-requests/:id/approve — 운영자 직접 승인
+router.post('/cert-requests/:id/approve', authMiddleware, OPERATOR, async (req, res, next) => {
+  try {
+    const { memo } = req.body
+    if (!memo?.trim()) return res.status(400).json({ message: '승인 메모를 입력해주세요.' })
+
+    const request = await prisma.certificationRequest.findFirst({
+      where: { id: req.params.id },
+      include: { user: { select: { id: true, name: true, role: true } } }
+    })
+    if (!request) return res.status(404).json({ message: '신청을 찾을 수 없습니다.' })
+    if (request.status !== 'PENDING') return res.status(400).json({ message: '처리 중인 신청만 승인할 수 있습니다.' })
+
+    const { createNotifications } = require('../services/notificationService')
+
+    await prisma.$transaction([
+      prisma.certificationRequest.update({
+        where: { id: req.params.id },
+        data: { status: 'APPROVED', reviewedById: req.user.id, reviewNote: memo.trim() }
+      }),
+      prisma.user.update({
+        where: { id: request.userId },
+        data: {
+          role: 'CERTIFIED',
+          roleMemo: memo.trim(),
+          organizationType: request.organizationType,
+          roleExpiresAt: request.organizationType === 'STUDENT_COUNCIL' ? request.expiresAt : null,
+        }
+      })
+    ])
+
+    createNotifications({
+      receiverIds: [request.userId],
+      type: 'CERT_APPROVED',
+      title: '인증주최자 신청이 승인되었습니다',
+      content: memo.trim(),
+      relatedTargetId: request.id,
+    }).catch(e => console.error('[notify cert approve]', e.message))
+
+    audit(req.user.id, 'CHANGE_ROLE', 'USER', request.userId,
+      `ATTENDEE → CERTIFIED (${request.user.name}) · 운영자 직접 승인`)
+    res.json({ message: '승인되었습니다.' })
+  } catch (err) { next(err) }
+})
+
+// POST /api/admin/cert-requests/:id/reject — 운영자 직접 거절
+router.post('/cert-requests/:id/reject', authMiddleware, OPERATOR, async (req, res, next) => {
+  try {
+    const { reason } = req.body
+    if (!reason?.trim()) return res.status(400).json({ message: '거절 사유를 입력해주세요.' })
+
+    const request = await prisma.certificationRequest.findFirst({
+      where: { id: req.params.id },
+      include: { user: { select: { id: true, name: true } } }
+    })
+    if (!request) return res.status(404).json({ message: '신청을 찾을 수 없습니다.' })
+    if (request.status !== 'PENDING') return res.status(400).json({ message: '처리 중인 신청만 거절할 수 있습니다.' })
+
+    const { createNotifications } = require('../services/notificationService')
+
+    await prisma.certificationRequest.update({
+      where: { id: req.params.id },
+      data: { status: 'REJECTED', reviewedById: req.user.id, reviewNote: reason.trim() }
+    })
+
+    createNotifications({
+      receiverIds: [request.userId],
+      type: 'CERT_REJECTED',
+      title: '인증주최자 신청이 거절되었습니다',
+      content: reason.trim().slice(0, 100),
+      relatedTargetId: request.id,
+    }).catch(e => console.error('[notify cert reject]', e.message))
+
+    audit(req.user.id, 'REJECT_CERT', 'USER', request.userId,
+      `${request.user.name} 인증 신청 거절 · ${reason.trim()}`)
+    res.json({ message: '거절되었습니다.' })
   } catch (err) { next(err) }
 })
 

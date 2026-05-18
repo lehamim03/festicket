@@ -12,8 +12,8 @@ export const editAdminUser = (userId, data) =>
 export const getSchoolUsers = (schoolId, search) =>
   api.get(`/admin/schools/${schoolId}/users`, { params: search ? { search } : {} }).then(r => r.data)
 
-export const updateUserRole = (userId, role, memo) =>
-  api.put(`/admin/users/${userId}/role`, { role, memo }).then(r => r.data)
+export const updateUserRole = (userId, role, memo, organizationType) =>
+  api.put(`/admin/users/${userId}/role`, { role, memo, organizationType }).then(r => r.data)
 
 export const getUserRegistrations = (userId) =>
   api.get(`/admin/users/${userId}/registrations`).then(r => r.data)

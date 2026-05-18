@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getMyCertRequests, submitCertRequest, cancelCertRequest } from '../api/certRequests'
+import { getMyCertRequests, submitCertRequest, cancelCertRequest, getSchoolAdmins } from '../api/certRequests'
 import { useToast } from './Toast'
 
 const STATUS_CONFIG = {
@@ -17,7 +17,7 @@ export default function CertRequestModal({ onClose }) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('status')
-  const [form, setForm] = useState({ organization: '', contact: '', message: '', organizationType: '', expiresAt: '' })
+  const [form, setForm] = useState({ organization: '', contact: '', message: '', organizationType: '', expiresAt: '', targetAdminId: '' })
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['my-cert-requests'],
@@ -27,12 +27,17 @@ export default function CertRequestModal({ onClose }) {
   const latestPending = requests.find(r => r.status === 'PENDING')
   const hasEverApplied = requests.length > 0
 
+  const { data: admins = [] } = useQuery({
+    queryKey: ['school-admins'],
+    queryFn: getSchoolAdmins,
+  })
+
   const submitMutation = useMutation({
     mutationFn: () => submitCertRequest(form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-cert-requests'] })
       toast('신청이 완료되었습니다.', 'success')
-      setForm({ organization: '', contact: '', message: '' })
+      setForm({ organization: '', contact: '', message: '', organizationType: '', expiresAt: '', targetAdminId: '' })
       setTab('status')
     },
     onError: (err) => toast(err.response?.data?.message || '신청에 실패했습니다.', 'error'),
@@ -173,6 +178,57 @@ export default function CertRequestModal({ onClose }) {
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-gray-700">
+                      신청할 관리자 <span className="text-red-400">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      {/* 운영자에게 직접 신청 */}
+                      <button
+                        type="button"
+                        onClick={() => setForm(v => ({ ...v, targetAdminId: '__OPERATOR__' }))}
+                        className={`w-full text-left rounded-xl border-2 px-3 py-2.5 transition ${
+                          form.targetAdminId === '__OPERATOR__'
+                            ? 'border-orange-400 bg-orange-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${form.targetAdminId === '__OPERATOR__' ? 'text-orange-700' : 'text-gray-700'}`}>
+                            운영자에게 신청
+                          </span>
+                          <span className="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">플랫폼 운영팀</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">학교 관리자 없이 운영팀에서 직접 검토합니다</p>
+                      </button>
+
+                      {/* 학교 관리자 목록 */}
+                      {admins.map(admin => (
+                        <button
+                          key={admin.id}
+                          type="button"
+                          onClick={() => setForm(v => ({ ...v, targetAdminId: admin.id }))}
+                          className={`w-full text-left rounded-xl border-2 px-3 py-2.5 transition ${
+                            form.targetAdminId === admin.id
+                              ? 'border-primary-500 bg-primary-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <p className={`text-sm font-semibold ${form.targetAdminId === admin.id ? 'text-primary-700' : 'text-gray-700'}`}>
+                            {admin.name}
+                          </p>
+                          {admin.roleMemo && (
+                            <p className="text-xs text-gray-400 mt-0.5">{admin.roleMemo}</p>
+                          )}
+                        </button>
+                      ))}
+
+                      {admins.length === 0 && form.targetAdminId !== '__OPERATOR__' && (
+                        <p className="text-xs text-gray-400 px-1">소속 학교에 등록된 관리자가 없습니다. 운영자에게 신청해주세요.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
                       구분 <span className="text-red-400">*</span>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -258,6 +314,7 @@ export default function CertRequestModal({ onClose }) {
 
                   <button
                     onClick={() => {
+                      if (!form.targetAdminId) return toast('신청할 관리자를 선택해주세요.', 'error')
                       if (!form.organizationType) return toast('구분을 선택해주세요.', 'error')
                       if (!form.organization.trim()) return toast('소속 단체/직책을 입력해주세요.', 'error')
                       if (!form.contact.trim()) return toast('연락처를 입력해주세요.', 'error')

@@ -124,7 +124,7 @@ function RoleChangeButton({ user }) {
 // ── 메인 ─────────────────────────────────────────────────────────────────────
 
 export default function SchoolAdminDashboard() {
-  const { user: me } = useAuth()
+  const { user } = useAuth()
   const toast = useToast()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState('users')
@@ -149,7 +149,7 @@ export default function SchoolAdminDashboard() {
   const contactMutation = useMutation({
     mutationFn: (val) => updateSchoolContact(val),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-school-users'] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
       toast('연락처가 저장되었습니다.', 'success')
       setContactEditing(false)
     },
@@ -225,7 +225,7 @@ export default function SchoolAdminDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{school?.name ?? '내 학교'} 관리</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{me?.name} · 학교 총 관리자</p>
+          <p className="text-sm text-gray-400 mt-0.5">{user?.name} · 학교 총 관리자</p>
         </div>
         <Link to="/school-admin/notices" className="btn-primary text-sm px-4 py-2 rounded-xl">
           공지 관리
@@ -257,22 +257,22 @@ export default function SchoolAdminDashboard() {
                 className="text-xs font-semibold px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition"
               >저장</button>
               <button
-                onClick={() => { setContactEditing(false); setContactInput(school?.adminContact || '') }}
+                onClick={() => { setContactEditing(false); setContactInput(user?.adminContact || '') }}
                 className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5"
               >취소</button>
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              {school?.adminContact ? (
-                <a href={school.adminContact} target="_blank" rel="noreferrer"
+              {user?.adminContact ? (
+                <a href={user.adminContact} target="_blank" rel="noreferrer"
                   className="text-sm text-primary-600 hover:underline truncate max-w-xs">
-                  {school.adminContact}
+                  {user.adminContact}
                 </a>
               ) : (
                 <span className="text-sm text-gray-300">연락처 링크를 등록해주세요</span>
               )}
               <button
-                onClick={() => { setContactInput(school?.adminContact || ''); setContactEditing(true) }}
+                onClick={() => { setContactInput(user?.adminContact || ''); setContactEditing(true) }}
                 className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
               >수정</button>
             </div>

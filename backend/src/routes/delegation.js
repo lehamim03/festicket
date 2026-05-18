@@ -78,10 +78,11 @@ router.post('/', authMiddleware, CERTIFIED, async (req, res, next) => {
     ])
 
     // 학교총관리자에게 알림
-    const schoolAdmin = await prisma.user.findFirst({
-      where: { schoolId: fromUser.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null }
+    const schoolAdmins = await prisma.user.findMany({
+      where: { schoolId: fromUser.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null },
+      select: { id: true }
     })
-    const notifyTargets = [toUserId, ...(schoolAdmin ? [schoolAdmin.id] : [])]
+    const notifyTargets = [toUserId, ...schoolAdmins.map(a => a.id)]
     createNotifications({
       receiverIds: notifyTargets,
       type: 'DELEGATION_DONE',

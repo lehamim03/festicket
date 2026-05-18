@@ -39,10 +39,12 @@ model User {
   roleExpiresAt          DateTime?
   organizationType       OrgType?
   profileImageUrl        String?
+  adminContact           String?
   hostRating             Float?
   ratingCount            Int              @default(0)
   certRequests           CertificationRequest[] @relation("CertRequests")
   certReviewed           CertificationRequest[] @relation("CertReqReviewer")
+  certRequestsTargeted   CertificationRequest[] @relation("CertReqTargetAdmin")
   delegationsFrom        DelegationRequest[]    @relation("DelegationFrom")
   delegationsTo          DelegationRequest[]    @relation("DelegationTo")
   bookmarks              EventBookmark[]        @relation("Bookmarks")
@@ -253,6 +255,8 @@ model CertificationRequest {
   contact          String?
   organizationType OrgType   @default(CLUB)
   expiresAt        DateTime?
+  targetAdminId    String?
+  targetAdmin      User?     @relation("CertReqTargetAdmin", fields: [targetAdminId], references: [id])
   status           CertReqStatus @default(PENDING)
   reviewNote   String?
   reviewedById String?

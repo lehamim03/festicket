@@ -70,7 +70,7 @@ router.get('/callback', async (req, res) => {
     if (existingUser) {
       // 기존 유저 → JWT 발급 후 바로 로그인
       const schoolData = existingUser.schoolId
-        ? await prisma.school.findUnique({ where: { id: existingUser.schoolId }, select: { id: true, name: true, domain: true } })
+        ? await prisma.school.findUnique({ where: { id: existingUser.schoolId }, select: { id: true, name: true, domain: true, adminContact: true } })
         : null
 
       const token = jwt.sign(

@@ -38,6 +38,7 @@ import AdminNotices from './pages/AdminNotices'
 import SchoolAdminNotices from './pages/SchoolAdminNotices'
 import Notifications from './pages/Notifications'
 import AdminInquiries from './pages/AdminInquiries'
+import AdminCertRequests from './pages/AdminCertRequests'
 import Footer from './components/Footer'
 
 export default function App() {
@@ -87,6 +88,7 @@ export default function App() {
         <Route path="/notices/:id" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><NoticeDetail /></div></PrivateRoute>} />
         <Route path="/admin/notices" element={<OperatorRoute><div className="max-w-6xl mx-auto px-4 py-6"><AdminNotices /></div></OperatorRoute>} />
         <Route path="/admin/inquiries" element={<OperatorRoute><div className="max-w-6xl mx-auto px-4 py-6"><AdminInquiries /></div></OperatorRoute>} />
+        <Route path="/admin/cert-requests" element={<OperatorRoute><div className="max-w-6xl mx-auto px-4 py-6"><AdminCertRequests /></div></OperatorRoute>} />
         <Route path="/notifications" element={<PrivateRoute><div className="max-w-6xl mx-auto px-4 py-6"><Notifications /></div></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -155,7 +155,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(403).json({ message: '이메일 인증이 필요합니다.', needsVerification: true, tokenExpired, email: user.email })
     }
     const schoolData = user.schoolId
-      ? await prisma.school.findUnique({ where: { id: user.schoolId }, select: { id: true, name: true, domain: true } })
+      ? await prisma.school.findUnique({ where: { id: user.schoolId }, select: { id: true, name: true, domain: true, adminContact: true } })
       : null
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, emailVerified: user.emailVerified, schoolId: user.schoolId, studentId: user.studentId ?? null },
@@ -173,11 +173,19 @@ router.get('/me', authMiddleware, async (req, res, next) => {
       where: { id: req.user.id },
       select: {
         id: true, name: true, email: true, role: true, emailVerified: true,
-        studentId: true, schoolId: true, kakaoId: true, roleMemo: true, roleExpiresAt: true, organizationType: true, profileImageUrl: true,
-        school: { select: { id: true, name: true, domain: true, adminContact: true } }
+        studentId: true, schoolId: true, kakaoId: true, roleMemo: true, roleExpiresAt: true,
+        organizationType: true, profileImageUrl: true, adminContact: true,
+        school: { select: { id: true, name: true, domain: true } }
       }
     })
-    res.json({ ...user, isKakaoUser: !!user.kakaoId })
+
+    // 학교 관리자 연락처 목록 (ATTENDEE/CERTIFIED에게 플로팅 버튼용)
+    const schoolAdminContacts = user.schoolId ? await prisma.user.findMany({
+      where: { schoolId: user.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null, adminContact: { not: null } },
+      select: { id: true, name: true, roleMemo: true, adminContact: true }
+    }) : []
+
+    res.json({ ...user, isKakaoUser: !!user.kakaoId, schoolAdminContacts })
   } catch (err) { next(err) }
 })
 

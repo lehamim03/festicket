@@ -30,6 +30,7 @@ function RoleChangeModal({ user, onClose }) {
   const queryClient = useQueryClient()
   const [role, setRole] = useState(user.role)
   const [memo, setMemo] = useState(user.roleMemo || '')
+  const [orgType, setOrgType] = useState(user.organizationType || '')
 
   const mutation = useMutation({
     mutationFn: () => updateUserRole(user.id, role, memo),
@@ -71,7 +72,7 @@ function RoleChangeModal({ user, onClose }) {
               type="text"
               value={memo}
               onChange={e => setMemo(e.target.value)}
-              placeholder="예) 동아리 연합 주최자 인증, 학생회 임원 확인 등"
+              placeholder={role === 'SCHOOL_ADMIN' ? '예) 총학생회, 컴공과 동아리연합, 과학생회 등' : '예) 동아리 연합 주최자 인증, 학생회 임원 확인 등'}
               maxLength={100}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400 placeholder:text-gray-300"
             />

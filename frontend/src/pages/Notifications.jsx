@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '../api/notifications'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 function fmtDate(iso) {
   if (!iso) return ''
@@ -14,6 +15,7 @@ function fmtDate(iso) {
 }
 
 export default function Notifications() {
+  const { user } = useAuth()
   const qc = useQueryClient()
 
   const { data: notifications = [], isLoading } = useQuery({
@@ -100,7 +102,7 @@ export default function Notifications() {
                   NEW_QUESTION:      { to: `/events/${n.relatedTargetId}`,     label: '행사 Q&A 보기 →' },
                   QUESTION_ANSWERED: { to: `/events/${n.relatedTargetId}`,     label: '행사 Q&A 보기 →' },
                   NOTICE_PUBLISHED:  { to: `/notices/${n.relatedTargetId}`,    label: '공지 보기 →' },
-                  CERT_REQUEST:      { to: `/school-admin`,                    label: '인증 신청 확인 →' },
+                  CERT_REQUEST:      { to: user?.role === 'OPERATOR' ? `/admin/cert-requests` : `/school-admin`, label: '인증 신청 확인 →' },
                 }
                 const link = linkMap[n.type]
                 if (!link) return null

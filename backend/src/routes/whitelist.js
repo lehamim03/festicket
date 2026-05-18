@@ -13,6 +13,8 @@ async function canManageWhitelist(userId, event) {
   if (user.role === 'OPERATOR') return true
   if (user.role === 'SCHOOL_ADMIN' && user.schoolId === event.schoolId) return true
   if (event.hostId === userId) return true
+  const coHost = await prisma.eventCoHost.findFirst({ where: { eventId: event.id, userId } })
+  if (coHost) return true
   return false
 }
 

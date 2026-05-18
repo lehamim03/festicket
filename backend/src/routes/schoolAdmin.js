@@ -111,19 +111,16 @@ router.put('/users/:userId/role', authMiddleware, SCHOOL_ADMIN, async (req, res,
   } catch (err) { next(err) }
 })
 
-// PUT /api/school-admin/contact — 학교 연락처 설정
+// PUT /api/school-admin/contact — 본인 연락처 설정
 router.put('/contact', authMiddleware, SCHOOL_ADMIN, async (req, res, next) => {
   try {
-    const schoolId = req.user.schoolId
-    if (!schoolId) return res.status(403).json({ message: '소속 학교가 없습니다.' })
-
     const { adminContact } = req.body
-    const updated = await prisma.school.update({
-      where: { id: schoolId },
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
       data: { adminContact: adminContact?.trim() || null },
       select: { id: true, adminContact: true }
     })
-    audit(req.user.id, 'UPDATE_SCHOOL_CONTACT', 'SCHOOL', schoolId,
+    audit(req.user.id, 'UPDATE_SCHOOL_CONTACT', 'USER', req.user.id,
       adminContact?.trim() ? `연락처 설정: ${adminContact.trim()}` : '연락처 삭제')
     res.json(updated)
   } catch (err) { next(err) }
@@ -136,7 +133,11 @@ router.get('/cert-requests', authMiddleware, SCHOOL_ADMIN, async (req, res, next
     if (!schoolId) return res.status(403).json({ message: '소속 학교가 없습니다.' })
 
     const requests = await prisma.certificationRequest.findMany({
-      where: { schoolId, status: 'PENDING' },
+      where: {
+        schoolId,
+        status: 'PENDING',
+        targetAdminId: req.user.id,
+      },
       include: {
         user: { select: { id: true, name: true, email: true, studentId: true, createdAt: true } }
       },

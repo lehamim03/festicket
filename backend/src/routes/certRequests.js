@@ -6,12 +6,31 @@ const { createNotifications } = require('../services/notificationService')
 const router = express.Router()
 const prisma = new PrismaClient()
 
+// GET /api/cert-requests/admins — 내 학교 관리자 목록 (신청 대상 선택용)
+router.get('/admins', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { schoolId: true }
+    })
+    if (!user?.schoolId) return res.json([])
+
+    const admins = await prisma.user.findMany({
+      where: { schoolId: user.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null },
+      select: { id: true, name: true, roleMemo: true },
+      orderBy: { name: 'asc' }
+    })
+    res.json(admins)
+  } catch (err) { next(err) }
+})
+
 // POST /api/cert-requests — 인증주최자 신청
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
-    const { message, organization, contact, organizationType, expiresAt } = req.body
+    const { message, organization, contact, organizationType, expiresAt, targetAdminId } = req.body
     if (!organization?.trim()) return res.status(400).json({ message: '소속 단체/직책을 입력해주세요.' })
     if (!contact?.trim()) return res.status(400).json({ message: '연락처를 입력해주세요.' })
+    if (!targetAdminId && targetAdminId !== null) return res.status(400).json({ message: '신청할 관리자를 선택해주세요.' })
     if (!['STUDENT_COUNCIL', 'CLUB'].includes(organizationType)) {
       return res.status(400).json({ message: '구분을 선택해주세요.' })
     }
@@ -41,11 +60,19 @@ router.post('/', authMiddleware, async (req, res, next) => {
       return res.status(409).json({ message: '이미 처리 중인 신청이 있습니다.' })
     }
 
-    const schoolAdmin = await prisma.user.findFirst({
-      where: { schoolId: user.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null }
-    })
-    if (!schoolAdmin) {
-      return res.status(400).json({ message: '소속 학교에 관리자가 없습니다. 운영자에게 문의해주세요.' })
+    // targetAdminId가 null이면 운영자에게 직접 신청
+    const toOperator = !targetAdminId
+    let resolvedTargetAdminId = null
+
+    if (!toOperator) {
+      const targetAdmin = await prisma.user.findFirst({
+        where: { id: targetAdminId, schoolId: user.schoolId, role: 'SCHOOL_ADMIN', deletedAt: null },
+        select: { id: true, name: true }
+      })
+      if (!targetAdmin) {
+        return res.status(400).json({ message: '유효하지 않은 관리자입니다.' })
+      }
+      resolvedTargetAdminId = targetAdminId
     }
 
     const request = await prisma.certificationRequest.create({
@@ -57,16 +84,34 @@ router.post('/', authMiddleware, async (req, res, next) => {
         contact: contact?.trim() || null,
         organizationType,
         expiresAt: organizationType === 'STUDENT_COUNCIL' ? new Date(expiresAt) : null,
+        targetAdminId: resolvedTargetAdminId,
       }
     })
 
-    createNotifications({
-      receiverIds: [schoolAdmin.id],
-      type: 'CERT_REQUEST',
-      title: '인증주최자 신청이 접수되었습니다',
-      content: `${user.name}님이 인증주최자 신청을 했습니다.`,
-      relatedTargetId: request.id,
-    }).catch(e => console.error('[notify cert]', e.message))
+    if (toOperator) {
+      // 운영자 전원에게 알림
+      const operators = await prisma.user.findMany({
+        where: { role: 'OPERATOR', deletedAt: null },
+        select: { id: true }
+      })
+      if (operators.length > 0) {
+        createNotifications({
+          receiverIds: operators.map(o => o.id),
+          type: 'CERT_REQUEST',
+          title: '인증주최자 신청이 접수되었습니다 (운영자)',
+          content: `${user.name}님이 운영자에게 인증주최자 신청을 했습니다.`,
+          relatedTargetId: request.id,
+        }).catch(e => console.error('[notify cert operator]', e.message))
+      }
+    } else {
+      createNotifications({
+        receiverIds: [resolvedTargetAdminId],
+        type: 'CERT_REQUEST',
+        title: '인증주최자 신청이 접수되었습니다',
+        content: `${user.name}님이 인증주최자 신청을 했습니다.`,
+        relatedTargetId: request.id,
+      }).catch(e => console.error('[notify cert]', e.message))
+    }
 
     res.status(201).json(request)
   } catch (err) { next(err) }

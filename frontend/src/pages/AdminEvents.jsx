@@ -16,6 +16,7 @@ function fmtDateTime(iso) {
 const STATUS_CONFIG = {
   DRAFT:     { label: '초안',   color: 'bg-amber-100 text-amber-700' },
   PUBLISHED: { label: '공개중', color: 'bg-green-100 text-green-700' },
+  CLOSED:    { label: '종료됨', color: 'bg-gray-100 text-gray-500' },
   CANCELLED: { label: '취소됨', color: 'bg-red-100 text-red-500' },
 }
 
@@ -23,6 +24,7 @@ const TABS = [
   { value: 'all',       label: '전체' },
   { value: 'PUBLISHED', label: '공개중' },
   { value: 'DRAFT',     label: '초안' },
+  { value: 'CLOSED',    label: '종료됨' },
   { value: 'CANCELLED', label: '취소됨' },
 ]
 
@@ -183,6 +185,14 @@ export default function AdminEvents() {
                           >
                             공개
                           </button>
+                        )}
+                        {event.status !== 'CANCELLED' && (
+                          <Link
+                            to={`/events/${event.id}/edit`}
+                            className="text-xs text-primary-600 hover:underline font-medium"
+                          >
+                            수정
+                          </Link>
                         )}
                         {event.status !== 'CANCELLED' && (
                           <button

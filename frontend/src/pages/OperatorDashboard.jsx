@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getAdminStats } from '../api/admin'
+import { getAdminAllCertRequests } from '../api/certRequests'
 import UserAvatar from '../components/UserAvatar'
 
 function fmtDate(iso) {
@@ -37,6 +38,11 @@ export default function OperatorDashboard() {
     queryKey: ['admin-stats'],
     queryFn: getAdminStats,
     refetchInterval: 30000,
+  })
+
+  const { data: pendingCerts = [] } = useQuery({
+    queryKey: ['admin-cert-requests', 'PENDING'],
+    queryFn: () => getAdminAllCertRequests({ status: 'PENDING' }),
   })
 
   if (isLoading) {
@@ -214,6 +220,7 @@ export default function OperatorDashboard() {
             { to: '/my-events', label: '내 행사 관리', desc: '내가 만든 행사', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
             { to: '/admin/notices', label: '공지 관리', desc: '전체 공지 작성·발행', icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z' },
             { to: '/admin/audit-logs', label: '감사 로그', desc: '관리자 액션 기록', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+            { to: '/admin/cert-requests', label: '인증신청 관리', desc: '전체 학교 인증주최자 신청', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', badge: pendingCerts.length },
             { to: '/admin/inquiries', label: '1:1 문의', desc: '사용자 문의 답변', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
           ].map(item => (
             <Link key={item.to} to={item.to} className="card p-4 flex items-center gap-3 hover:shadow-card-hover hover:-translate-y-0.5 transition-all group">
@@ -228,6 +235,11 @@ export default function OperatorDashboard() {
                   {item.to === '/admin/inquiries' && (stats?.pendingInquiries ?? 0) > 0 && (
                     <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full leading-none">
                       {stats.pendingInquiries}
+                    </span>
+                  )}
+                  {item.badge > 0 && (
+                    <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full leading-none">
+                      {item.badge}
                     </span>
                   )}
                 </div>

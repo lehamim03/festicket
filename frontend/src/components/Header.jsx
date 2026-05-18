@@ -28,6 +28,7 @@ export default function Header() {
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [certOpen, setCertOpen] = useState(false)
   const [delegationOpen, setDelegationOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function Header() {
   }
 
   const expiryDaysLeft = (() => {
-    if (!user?.roleExpiresAt) return null
+    if (!user?.roleExpiresAt || user.role !== 'CERTIFIED') return null
     const diff = new Date(user.roleExpiresAt) - new Date()
     const days = Math.ceil(diff / 86400000)
     return days <= 7 ? days : null
@@ -141,18 +142,16 @@ export default function Header() {
                     </Link>
                   )}
 
-                  {['CERTIFIED', 'SCHOOL_ADMIN', 'OPERATOR'].includes(user.role) && (
-                    <Link
-                      to="/my-events"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      내 행사 관리
-                    </Link>
-                  )}
+                  <Link
+                    to="/my-events"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    내 행사 관리
+                  </Link>
 
                   <Link
                     to="/notices"
@@ -256,18 +255,16 @@ export default function Header() {
 
     {user && (
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
-        {user.school?.adminContact && ['ATTENDEE', 'CERTIFIED'].includes(user.role) && (
-          <a
-            href={user.school.adminContact}
-            target="_blank"
-            rel="noreferrer"
+        {['ATTENDEE', 'CERTIFIED'].includes(user.role) && user.schoolAdminContacts?.length > 0 && (
+          <button
+            onClick={() => setContactOpen(true)}
             className="flex items-center gap-2 bg-white border border-gray-200 hover:border-primary-300 text-gray-700 hover:text-primary-600 pl-4 pr-5 py-3 rounded-full shadow-md transition-all hover:scale-105 active:scale-95"
           >
             <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span className="text-sm font-semibold">학교관리자에게 문의</span>
-          </a>
+            <span className="text-sm font-semibold">학교총관리자에게 문의</span>
+          </button>
         )}
         <button
           onClick={() => setInquiryOpen(true)}
@@ -284,6 +281,45 @@ export default function Header() {
     {inquiryOpen && <InquiryModal onClose={() => setInquiryOpen(false)} />}
     {certOpen && <CertRequestModal onClose={() => setCertOpen(false)} />}
     {delegationOpen && <DelegationModal onClose={() => setDelegationOpen(false)} />}
+    {contactOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setContactOpen(false)}>
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div>
+              <h2 className="font-bold text-gray-900">학교총관리자 문의</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{user.school?.name}</p>
+            </div>
+            <button onClick={() => setContactOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            {user.schoolAdminContacts.map(admin => (
+              <a
+                key={admin.id}
+                href={admin.adminContact}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition group"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-bold text-primary-600">{admin.name[0]}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{admin.name}</p>
+                  {admin.roleMemo && <p className="text-xs text-gray-400 mt-0.5">{admin.roleMemo}</p>}
+                </div>
+                <svg className="w-4 h-4 text-gray-300 group-hover:text-primary-400 transition shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }

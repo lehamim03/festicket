@@ -286,16 +286,28 @@ router.get('/cohost-candidates', authMiddleware, async (req, res, next) => {
     const { schoolId, q } = req.query
     if (!schoolId) return res.status(400).json({ message: 'schoolId가 필요합니다.' })
 
+    const nameEmailFilter = q ? [
+      { name: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+    ] : undefined
+
     const users = await prisma.user.findMany({
       where: {
-        schoolId,
-        role: { in: ['CERTIFIED', 'SCHOOL_ADMIN'] },
         deletedAt: null,
         id: { not: req.user.id },
-        ...(q ? { OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-        ]} : {}),
+        OR: [
+          // 같은 학교 일반/인증/학교관리자
+          {
+            schoolId,
+            role: { in: ['ATTENDEE', 'CERTIFIED', 'SCHOOL_ADMIN'] },
+            ...(nameEmailFilter ? { OR: nameEmailFilter } : {}),
+          },
+          // 운영자는 학교 무관 검색
+          {
+            role: 'OPERATOR',
+            ...(nameEmailFilter ? { OR: nameEmailFilter } : {}),
+          },
+        ],
       },
       select: { id: true, name: true, email: true, role: true },
       take: 20,
@@ -900,9 +912,11 @@ router.post('/:id/cohosts', authMiddleware, async (req, res, next) => {
 
     const candidate = await prisma.user.findUnique({ where: { id: userId } })
     if (!candidate || candidate.deletedAt) return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' })
-    if (candidate.schoolId !== event.schoolId) return res.status(400).json({ message: '같은 학교 소속만 공동호스트로 추가할 수 있습니다.' })
-    if (!['CERTIFIED', 'SCHOOL_ADMIN'].includes(candidate.role)) {
-      return res.status(400).json({ message: '인증주최자 또는 학교총관리자만 공동호스트로 추가할 수 있습니다.' })
+    if (candidate.role !== 'OPERATOR' && candidate.schoolId !== event.schoolId) {
+      return res.status(400).json({ message: '같은 학교 소속만 공동호스트로 추가할 수 있습니다.' })
+    }
+    if (!['ATTENDEE', 'CERTIFIED', 'SCHOOL_ADMIN', 'OPERATOR'].includes(candidate.role)) {
+      return res.status(400).json({ message: '유효하지 않은 사용자입니다.' })
     }
     if (event.coHosts.some(ch => ch.userId === userId)) {
       return res.status(409).json({ message: '이미 공동호스트로 등록된 사용자입니다.' })

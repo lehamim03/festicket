@@ -1,4 +1,26 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__resize_page",
+      "WebFetch(domain:brand.toss.im)",
+      "WebFetch(domain:static.toss.im)",
+      "WebFetch(domain:cdn.simpleicons.org)",
+      "WebFetch(domain:simpleicons.org)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)",
+      "Bash(node *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\passticket\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(grep -E \"\\\\.jsx$\")",
+      "Bash(cd /d D:/passticket)",
+      "Bash(python -c ' *)"
+    ]
+  },
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": true
   }

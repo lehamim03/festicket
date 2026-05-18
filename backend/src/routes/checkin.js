@@ -22,10 +22,12 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     if (!registration) return res.json({ ok: false, reason: '유효하지 않은 QR' })
 
-    // SCHOOL_ADMIN / OPERATOR도 허용, 그 외는 호스트만
     const isHost = registration.event.hostId === req.user.id
     const isAdmin = req.user.role === 'OPERATOR' || req.user.role === 'SCHOOL_ADMIN'
-    if (!isHost && !isAdmin) {
+    const isCoHost = !isHost && !isAdmin && await prisma.eventCoHost.findFirst({
+      where: { eventId: registration.event.id, userId: req.user.id }
+    })
+    if (!isHost && !isAdmin && !isCoHost) {
       return res.status(403).json({ ok: false, reason: '권한이 없습니다.' })
     }
 
@@ -66,7 +68,10 @@ router.get('/:eventId/stats', authMiddleware, async (req, res, next) => {
 
     const isHost = event.hostId === req.user.id
     const isAdmin = req.user.role === 'OPERATOR' || req.user.role === 'SCHOOL_ADMIN'
-    if (!isHost && !isAdmin) return res.status(403).json({ message: '권한이 없습니다.' })
+    const isCoHost = !isHost && !isAdmin && await prisma.eventCoHost.findFirst({
+      where: { eventId: req.params.eventId, userId: req.user.id }
+    })
+    if (!isHost && !isAdmin && !isCoHost) return res.status(403).json({ message: '권한이 없습니다.' })
 
     const [total, checkedIn] = await Promise.all([
       prisma.registration.count({
