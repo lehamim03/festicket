@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getEvent, getEventRegistrations, approveRefund, publishEvent, closeEvent, downloadReport, addCoHost, removeCoHost, searchCoHostCandidates } from '../api/events'
+import { getEvent, getEventRegistrations, approveRefund, publishEvent, closeEvent, cancelEvent, downloadReport, addCoHost, removeCoHost, searchCoHostCandidates } from '../api/events'
 import { getReviews } from '../api/reviews'
 import { useAuth } from '../hooks/useAuth'
 import EventWhitelistManager from '../components/EventWhitelistManager'
@@ -214,6 +214,12 @@ export default function EventManage() {
     onError: (err) => alert(err.response?.data?.message ?? '마감 실패'),
   })
 
+  const cancelMutation = useMutation({
+    mutationFn: (cancelReason) => cancelEvent(id, cancelReason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['event', id] }),
+    onError: (err) => alert(err.response?.data?.message ?? '취소 실패'),
+  })
+
   const refundMutation = useMutation({
     mutationFn: () => approveRefund(id, refundTarget.id, refundReason),
     onSuccess: (res) => {
@@ -335,6 +341,16 @@ export default function EventManage() {
             <Link to={`/events/${id}/checkin`} className="btn text-sm border border-primary-200 text-primary-600 hover:bg-primary-50 px-4 py-2 rounded-xl">
               QR 체크인
             </Link>
+            <button
+              onClick={() => {
+                const reason = prompt('행사를 취소하시겠습니까?\n참가자 전원에게 자동 환불됩니다.\n\n취소 사유를 입력해주세요. (선택)')
+                if (reason !== null) cancelMutation.mutate(reason)
+              }}
+              disabled={cancelMutation.isPending}
+              className="btn text-sm border border-red-200 text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl disabled:opacity-50"
+            >
+              {cancelMutation.isPending ? '취소 중...' : '행사 취소'}
+            </button>
           </>
         )}
         {!['CANCELLED', 'CLOSED'].includes(event.status) && (

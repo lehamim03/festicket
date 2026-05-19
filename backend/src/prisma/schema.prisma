@@ -82,9 +82,9 @@ model Event {
   status                  EventStatus        @default(DRAFT)
   isPaid                  Boolean            @default(false)
   price                   Int?
-  capacity                Int
-  startAt                 DateTime
-  endAt                   DateTime
+  capacity                Int                @default(100)
+  startAt                 DateTime?
+  endAt                   DateTime?
   registrationDeadline    DateTime?
   imageUrl                String?
   publishAt               DateTime?

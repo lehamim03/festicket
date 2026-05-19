@@ -338,7 +338,7 @@ router.post('/release-all', async (req, res, next) => {
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { schoolId, status } = req.query
-    const where = { deletedAt: null }
+    const where = { deletedAt: null, status: status || { notIn: ['DRAFT', 'CANCELLED'] } }
 
     if (req.user?.role === 'ATTENDEE') {
       const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { schoolId: true } })
@@ -471,46 +471,60 @@ router.post('/', authMiddleware, requireRole('CERTIFIED', 'SCHOOL_ADMIN', 'OPERA
       refundDeadlineAt: refundDeadlineAtRaw,
       releaseDeadline: releaseDeadlineRaw,
       refundPolicyText, contactEmail, contactPhone,
+      status: reqStatus,
     } = req.body
 
-    if (!title || !capacity || !startAt || !endAt) {
-      return res.status(400).json({ message: '필수 항목이 누락되었습니다. (title, capacity, startAt, endAt)' })
+    const isDraft = reqStatus === 'DRAFT'
+    if (!['DRAFT', 'PUBLISHED', undefined].includes(reqStatus)) {
+      return res.status(400).json({ message: '유효하지 않은 status입니다.' })
     }
 
-    // BR-20: 시작 시각은 현재 이후
-    const startDate = new Date(startAt)
-    const endDate = new Date(endAt)
-    if (startDate <= new Date()) {
-      return res.status(400).json({ message: '행사 시작 시각은 현재 시각 이후여야 합니다. (BR-20)' })
+    if (!title) {
+      return res.status(400).json({ message: '행사명은 필수입니다.' })
     }
-    if (endDate <= startDate) {
-      return res.status(400).json({ message: '행사 종료 시각은 시작 시각 이후여야 합니다.' })
-    }
-    // BR-21: 신청 마감은 시작 이전
-    if (registrationDeadline && new Date(registrationDeadline) >= startDate) {
-      return res.status(400).json({ message: '신청 마감 시각은 행사 시작 이전이어야 합니다. (BR-21)' })
-    }
-    // BR-22: 정원 1 이상
-    if (capacity < 1) {
-      return res.status(400).json({ message: '정원은 1 이상이어야 합니다. (BR-22)' })
-    }
-    // BR-23: 유료 행사 최소 금액 100원
-    if (isPaid && (!price || price < 100)) {
-      return res.status(400).json({ message: '유료 행사는 100원 이상이어야 합니다. (BR-23)' })
-    }
-    // BR-24: 릴리즈 주기는 5/15/30/60 중 하나
-    if (releaseIntervalMinutes != null && ![5, 15, 30, 60].includes(releaseIntervalMinutes)) {
-      return res.status(400).json({ message: '취소표 릴리즈 주기는 5/15/30/60 중 하나여야 합니다. (BR-24)' })
-    }
-    // publishAt 검증: 유효한 시각이어야 하며 행사 시작 이전이어야 함
-    if (publishAt) {
-      const publishDate = new Date(publishAt)
-      if (isNaN(publishDate.getTime())) {
-        return res.status(400).json({ message: '유효하지 않은 오픈 시각입니다.' })
+
+    let startDate, endDate
+    if (!isDraft) {
+      if (!startAt || !endAt || !capacity) {
+        return res.status(400).json({ message: '공개 행사는 시작/종료 시각과 정원이 필수입니다.' })
       }
-      if (publishDate >= startDate) {
-        return res.status(400).json({ message: '오픈 시각은 행사 시작 시각 이전이어야 합니다.' })
+      startDate = new Date(startAt)
+      endDate = new Date(endAt)
+      // BR-20: 시작 시각은 현재 이후
+      if (startDate <= new Date()) {
+        return res.status(400).json({ message: '행사 시작 시각은 현재 시각 이후여야 합니다. (BR-20)' })
       }
+      if (endDate <= startDate) {
+        return res.status(400).json({ message: '행사 종료 시각은 시작 시각 이후여야 합니다.' })
+      }
+      // BR-21: 신청 마감은 시작 이전
+      if (registrationDeadline && new Date(registrationDeadline) >= startDate) {
+        return res.status(400).json({ message: '신청 마감 시각은 행사 시작 이전이어야 합니다. (BR-21)' })
+      }
+      // BR-22: 정원 1 이상
+      if (capacity < 1) {
+        return res.status(400).json({ message: '정원은 1 이상이어야 합니다. (BR-22)' })
+      }
+      // BR-23: 유료 행사 최소 금액 100원
+      if (isPaid && (!price || price < 100)) {
+        return res.status(400).json({ message: '유료 행사는 100원 이상이어야 합니다. (BR-23)' })
+      }
+      // BR-24: 릴리즈 주기는 5/15/30/60 중 하나
+      if (releaseIntervalMinutes != null && ![5, 15, 30, 60].includes(releaseIntervalMinutes)) {
+        return res.status(400).json({ message: '취소표 릴리즈 주기는 5/15/30/60 중 하나여야 합니다. (BR-24)' })
+      }
+      if (publishAt) {
+        const publishDate = new Date(publishAt)
+        if (isNaN(publishDate.getTime())) {
+          return res.status(400).json({ message: '유효하지 않은 오픈 시각입니다.' })
+        }
+        if (publishDate >= startDate) {
+          return res.status(400).json({ message: '오픈 시각은 행사 시작 시각 이전이어야 합니다.' })
+        }
+      }
+    } else {
+      startDate = startAt ? new Date(startAt) : null
+      endDate = endAt ? new Date(endAt) : null
     }
 
     const user = await prisma.user.findUnique({
@@ -547,7 +561,7 @@ router.post('/', authMiddleware, requireRole('CERTIFIED', 'SCHOOL_ADMIN', 'OPERA
         refundPolicyText,
         contactEmail,
         contactPhone,
-        status: 'PUBLISHED',
+        status: isDraft ? 'DRAFT' : 'PUBLISHED',
       },
     })
 
@@ -566,6 +580,16 @@ router.put('/:id/publish', authMiddleware, async (req, res, next) => {
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
     if (!canManageEvent(user, event)) return res.status(403).json({ message: '권한이 없습니다.' })
+
+    if (!event.startAt || !event.endAt || !event.capacity) {
+      return res.status(400).json({ message: '공개하려면 시작/종료 시각과 정원을 먼저 입력해주세요.' })
+    }
+    if (new Date(event.startAt) <= new Date()) {
+      return res.status(400).json({ message: '행사 시작 시각이 이미 지났습니다. 시작 시각을 수정 후 공개해주세요.' })
+    }
+    if (event.isPaid && (!event.price || event.price < 100)) {
+      return res.status(400).json({ message: '유료 행사는 가격을 100원 이상으로 설정 후 공개해주세요.' })
+    }
 
     const updated = await prisma.event.update({
       where: { id: event.id },
@@ -684,67 +708,58 @@ router.post('/:id/close', authMiddleware, async (req, res, next) => {
   }
 })
 
-// DELETE /:id — 행사 삭제 (UC-P05, soft delete + 자동 환불 큐 등록)
-router.delete('/:id', authMiddleware, async (req, res, next) => {
+// POST /:id/cancel — 행사 취소 (PUBLISHED → CANCELLED, 참가자 자동 환불)
+router.post('/:id/cancel', authMiddleware, async (req, res, next) => {
   try {
     const event = await prisma.event.findUnique({ where: { id: req.params.id } })
     if (!event || event.deletedAt) return res.status(404).json({ message: '행사를 찾을 수 없습니다.' })
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } })
-    // 삭제는 주 호스트·SCHOOL_ADMIN·OPERATOR만 가능 (공동호스트 제외)
-    const canDelete = user.role === 'OPERATOR' ||
+    const canCancel = user.role === 'OPERATOR' ||
       (user.role === 'SCHOOL_ADMIN' && user.schoolId === event.schoolId) ||
       event.hostId === user.id
-    if (!canDelete) return res.status(403).json({ message: '삭제 권한이 없습니다.' })
+    if (!canCancel) return res.status(403).json({ message: '권한이 없습니다.' })
+    if (event.status !== 'PUBLISHED') {
+      return res.status(400).json({ message: '공개 중인 행사만 취소할 수 있습니다.' })
+    }
 
-    const [freeCount, paidCount] = await Promise.all([
-      event.isPaid ? Promise.resolve(0) : prisma.registration.count({
-        where: { eventId: event.id, status: { in: ['CONFIRMED', 'PENDING_PAYMENT', 'CHECKED_IN'] } },
-      }),
+    const reason = req.body.cancelReason?.trim() || '행사 취소'
+
+    const [paidCount, freeCount] = await Promise.all([
       event.isPaid ? prisma.registration.count({
         where: { eventId: event.id, status: { in: ['CONFIRMED', 'CHECKED_IN'] } },
+      }) : Promise.resolve(0),
+      !event.isPaid ? prisma.registration.count({
+        where: { eventId: event.id, status: { in: ['CONFIRMED', 'PENDING_PAYMENT', 'CHECKED_IN'] } },
       }) : Promise.resolve(0),
     ])
 
     await prisma.$transaction(async (tx) => {
-      await tx.event.update({ where: { id: event.id }, data: { deletedAt: new Date() } })
-
-      // Q&A 소프트 딜리트 (행사 삭제 시 함께 처리)
-      await tx.eventQuestion.updateMany({
-        where: { eventId: event.id, deletedAt: null },
-        data: { deletedAt: new Date() },
-      })
+      await tx.event.update({ where: { id: event.id }, data: { status: 'CANCELLED' } })
 
       if (event.isPaid) {
-        // PENDING_PAYMENT → EXPIRED (실제 결제 없음)
         await tx.registration.updateMany({
           where: { eventId: event.id, status: 'PENDING_PAYMENT' },
           data: { status: 'EXPIRED' },
         })
-        // CONFIRMED/CHECKED_IN → CANCELLATION_REQUESTED (환불 큐)
         await tx.registration.updateMany({
           where: { eventId: event.id, status: { in: ['CONFIRMED', 'CHECKED_IN'] } },
-          data: {
-            status: 'CANCELLATION_REQUESTED',
-            cancelReason: '행사 삭제로 인한 자동 환불',
-            nextRetryAt: null,
-          },
+          data: { status: 'CANCELLATION_REQUESTED', cancelReason: reason, nextRetryAt: null },
         })
       } else {
-        // 무료 행사: 즉시 CANCELLED
         await tx.registration.updateMany({
           where: { eventId: event.id, status: { in: ['CONFIRMED', 'PENDING_PAYMENT', 'CHECKED_IN'] } },
-          data: { status: 'CANCELLED' },
+          data: { status: 'CANCELLED', cancelReason: reason },
         })
       }
     })
 
-    // 유료 환불 건에 멱등키 부여 (트랜잭션 밖에서 처리)
     if (event.isPaid) {
-      const regsNeedingKey = await prisma.registration.findMany({
+      const toRefund = await prisma.registration.findMany({
         where: { eventId: event.id, status: 'CANCELLATION_REQUESTED', idempotencyKey: null },
+        select: { id: true },
       })
-      for (const reg of regsNeedingKey) {
+      for (const reg of toRefund) {
         await prisma.registration.update({
           where: { id: reg.id },
           data: { idempotencyKey: `${reg.id}-cancel-${Date.now()}` },
@@ -752,15 +767,37 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
       }
     }
 
-    audit(req.user.id, 'DELETE_EVENT', 'EVENT', event.id, event.title)
-    res.json({
-      message: '행사가 삭제되었습니다.',
-      freeCancelled: freeCount,
-      paidRefundQueued: paidCount,
+    audit(req.user.id, 'CANCEL_EVENT', 'EVENT', event.id, `${event.title} — ${reason}`)
+    res.json({ message: '행사가 취소되었습니다.', freeCancelled: freeCount, paidRefundQueued: paidCount })
+  } catch (err) { next(err) }
+})
+
+// DELETE /:id — 초안 행사 삭제 (DRAFT 전용 soft delete)
+router.delete('/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const event = await prisma.event.findUnique({ where: { id: req.params.id } })
+    if (!event || event.deletedAt) return res.status(404).json({ message: '행사를 찾을 수 없습니다.' })
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+    const canDelete = user.role === 'OPERATOR' ||
+      (user.role === 'SCHOOL_ADMIN' && user.schoolId === event.schoolId) ||
+      event.hostId === user.id
+    if (!canDelete) return res.status(403).json({ message: '삭제 권한이 없습니다.' })
+    if (event.status !== 'DRAFT') {
+      return res.status(400).json({ message: '초안 행사만 삭제할 수 있습니다. 공개된 행사는 행사 취소를 이용해주세요.' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.event.update({ where: { id: event.id }, data: { deletedAt: new Date() } })
+      await tx.eventQuestion.updateMany({
+        where: { eventId: event.id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      })
     })
-  } catch (err) {
-    next(err)
-  }
+
+    audit(req.user.id, 'DELETE_EVENT', 'EVENT', event.id, event.title)
+    res.json({ message: '행사가 삭제되었습니다.' })
+  } catch (err) { next(err) }
 })
 
 // ─── 참여자 관리 ──────────────────────────────────────────────────────────────

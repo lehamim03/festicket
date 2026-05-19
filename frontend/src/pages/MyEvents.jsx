@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getMyEvents, publishEvent, closeEvent, deleteEvent } from '../api/events'
+import { getMyEvents, publishEvent, closeEvent, deleteEvent, cancelEvent } from '../api/events'
 import { useAuth } from '../hooks/useAuth'
 
 function fmtDate(iso) {
@@ -136,6 +136,12 @@ export default function MyEvents() {
     onError: (err) => alert(err.response?.data?.message ?? '삭제 실패'),
   })
 
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, cancelReason }) => cancelEvent(id, cancelReason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-events'] }),
+    onError: (err) => alert(err.response?.data?.message ?? '취소 실패'),
+  })
+
   const filtered = tab === 'all' ? events : events.filter(e => e.status === tab)
 
   return (
@@ -200,13 +206,18 @@ export default function MyEvents() {
                     if (confirm(`"${event.title}" 행사를 마감하시겠습니까?\n더 이상 신청을 받지 않습니다.`)) closeMutation.mutate(event.id)
                   }}
                   onDelete={() => {
-                    if (confirm(`"${event.title}" 행사를 삭제하시겠습니까?\n신청자가 있으면 자동 취소 처리됩니다.`)) {
+                    if (confirm(`"${event.title}" 초안을 삭제하시겠습니까?`)) {
                       deleteMutation.mutate(event.id)
                     }
+                  }}
+                  onCancel={() => {
+                    const reason = prompt(`"${event.title}" 행사를 취소하시겠습니까?\n취소 사유를 입력해주세요. (선택)`)
+                    if (reason !== null) cancelMutation.mutate({ id: event.id, cancelReason: reason })
                   }}
                   isPublishing={publishMutation.isPending && publishMutation.variables === event.id}
                   isClosing={closeMutation.isPending && closeMutation.variables === event.id}
                   isDeleting={deleteMutation.isPending && deleteMutation.variables === event.id}
+                  isCancelling={cancelMutation.isPending && cancelMutation.variables?.id === event.id}
                 />
               ))}
             </ul>
@@ -229,7 +240,7 @@ function StarDisplay({ avg, count }) {
   )
 }
 
-function EventRow({ event, onPublish, onClose, onDelete, isPublishing, isClosing, isDeleting }) {
+function EventRow({ event, onPublish, onClose, onDelete, onCancel, isPublishing, isClosing, isDeleting, isCancelling }) {
   const displayStatus = getDisplayStatus(event)
   const cfg = STATUS_CONFIG[displayStatus] ?? { label: event.status, color: 'bg-gray-100 text-gray-500' }
   const isEnded = displayStatus === 'ENDED'
@@ -333,13 +344,23 @@ function EventRow({ event, onPublish, onClose, onDelete, isPublishing, isClosing
           </button>
         )}
 
-        {!event.isCoHost && !['CANCELLED', 'CLOSED'].includes(event.status) && !isEnded && (
+        {!event.isCoHost && event.status === 'DRAFT' && (
           <button
             onClick={onDelete}
             disabled={isDeleting}
             className="btn text-xs border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg disabled:opacity-50 ml-auto"
           >
             {isDeleting ? '삭제 중...' : '삭제'}
+          </button>
+        )}
+
+        {!event.isCoHost && event.status === 'PUBLISHED' && !isEnded && (
+          <button
+            onClick={onCancel}
+            disabled={isCancelling}
+            className="btn text-xs border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg disabled:opacity-50 ml-auto"
+          >
+            {isCancelling ? '취소 중...' : '행사 취소'}
           </button>
         )}
       </div>

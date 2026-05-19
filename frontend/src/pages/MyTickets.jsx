@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
 import { getMyRegistrations, cancelFreeRegistration } from '../api/registrations'
 import { cancelPaidRegistration, cancelPendingPayment } from '../api/payments'
+import { useAuth } from '../hooks/useAuth'
 import TicketCalendar from '../components/TicketCalendar'
 
 function fmtDateTime(iso) {
@@ -24,7 +25,36 @@ const STATUS_LABEL = {
 export default function MyTickets() {
   const [tab, setTab] = useState('active')
   const [view, setView] = useState('list')
+  const [payingId, setPayingId] = useState(null)
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+
+  const handleRetryPayment = async (r) => {
+    setPayingId(r.id)
+    try {
+      await new Promise((resolve, reject) => {
+        if (window.TossPayments) return resolve()
+        const script = document.createElement('script')
+        script.src = 'https://js.tosspayments.com/v1'
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+      const tossPayments = window.TossPayments(import.meta.env.VITE_TOSS_CLIENT_KEY)
+      await tossPayments.requestPayment('카드', {
+        amount: r.event.price,
+        orderId: r.orderId,
+        orderName: r.event.title,
+        customerName: user.name,
+        successUrl: `${window.location.origin}/payment/result`,
+        failUrl: `${window.location.origin}/payment/result`,
+      })
+    } catch (err) {
+      alert(err.response?.data?.message ?? err.message ?? '결제 준비에 실패했습니다.')
+    } finally {
+      setPayingId(null)
+    }
+  }
 
   const { data: regs = [], isLoading } = useQuery({
     queryKey: ['my-registrations', tab],
@@ -109,6 +139,8 @@ export default function MyTickets() {
               onCancel={(id) => cancelMutation.mutate(id)}
               onRefund={(id) => cancelPaidMutation.mutate(id)}
               onCancelPending={(orderId) => cancelPendingMutation.mutate(orderId)}
+              onRetryPayment={() => handleRetryPayment(r)}
+              isPaying={payingId === r.id}
             />
           ))}
         </ul>
@@ -117,12 +149,13 @@ export default function MyTickets() {
   )
 }
 
-function TicketItem({ r, tab, onCancel, onRefund, onCancelPending }) {
+function TicketItem({ r, tab, onCancel, onRefund, onCancelPending, onRetryPayment, isPaying }) {
   const [showQR, setShowQR] = useState(false)
   const refundDeadlinePassed = r.event.refundDeadlineAt && new Date() > new Date(r.event.refundDeadlineAt)
   const canCancel = tab === 'active' && r.status === 'CONFIRMED' && !r.event.isPaid
   const canRefund = tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && !refundDeadlinePassed
   const canCancelPending = tab === 'active' && r.status === 'PENDING_PAYMENT'
+  const canRetryPayment = tab === 'active' && r.status === 'PENDING_PAYMENT' && r.event.isPaid
   const showQRBtn = r.status === 'CONFIRMED' || r.status === 'CHECKED_IN'
 
   return (
@@ -171,6 +204,15 @@ function TicketItem({ r, tab, onCancel, onRefund, onCancelPending }) {
           )}
           {tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && refundDeadlinePassed && (
             <span className="text-xs text-gray-400 px-3 py-1.5">환불 마감</span>
+          )}
+          {canRetryPayment && (
+            <button
+              onClick={onRetryPayment}
+              disabled={isPaying}
+              className="btn text-xs border border-primary-200 text-primary-600 hover:bg-primary-50 px-3 py-1.5 disabled:opacity-50"
+            >
+              {isPaying ? '결제 중...' : '결제하기'}
+            </button>
           )}
           {canCancelPending && (
             <button

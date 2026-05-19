@@ -1,13 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Read(//d/festivalpro/**)"
+      "Read(//d/festivalpro/**)",
+      "Bash(Get-ChildItem -Path \"d:\\\\festicket\\\\festicket\")"
     ]
   },
   "lspServers": {
     "typescript": {
       "command": "node",
-      "args": ["C:\\nvm4w\\nodejs\\node_modules\\typescript-language-server\\lib\\cli.mjs", "--stdio"]
+      "args": [
+        "C:\\nvm4w\\nodejs\\node_modules\\typescript-language-server\\lib\\cli.mjs",
+        "--stdio"
+      ]
     }
   }
 }

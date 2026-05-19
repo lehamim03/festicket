@@ -40,6 +40,11 @@ export const deleteEvent = async (id) => {
   return res.data
 }
 
+export const cancelEvent = async (id, cancelReason) => {
+  const res = await api.post(`/v1/events/${id}/cancel`, { cancelReason })
+  return res.data
+}
+
 export const getAttendees = async (id) => {
   const res = await api.get(`/v1/events/${id}/attendees`)
   return res.data

@@ -241,9 +241,15 @@ export default function EventCreate() {
   const canCreate = user && ['CERTIFIED', 'SCHOOL_ADMIN', 'OPERATOR'].includes(user.role)
 
   const createMutation = useMutation({
-    mutationFn: createEvent,
+    mutationFn: (payload) => createEvent(payload),
     onSuccess: (event) => navigate(`/events/${event.id}/manage`),
     onError: (err) => alert(err.response?.data?.message ?? '생성에 실패했습니다.'),
+  })
+
+  const draftMutation = useMutation({
+    mutationFn: (payload) => createEvent({ ...payload, status: 'DRAFT' }),
+    onSuccess: (event) => navigate(`/events/${event.id}/manage`),
+    onError: (err) => alert(err.response?.data?.message ?? '초안 저장에 실패했습니다.'),
   })
 
   const handleImageFile = async (file) => {
@@ -268,21 +274,29 @@ export default function EventCreate() {
   const set = (k) => (e) =>
     setForm(f => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
+  const buildPayload = () => ({
+    ...form,
+    capacity: Number(form.capacity),
+    price: form.isPaid ? Number(form.price) : null,
+    releaseIntervalMinutes: Number(form.releaseIntervalMinutes),
+    refundDeadlineAt: form.isPaid && form.refundDeadlineAt ? form.refundDeadlineAt : null,
+    releaseDeadline: form.releaseDeadline || null,
+    imageUrl: form.imageUrl || null,
+    publishAt: form.openMode === 'scheduled' && form.publishAt ? form.publishAt : null,
+  })
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (uploading) return alert('이미지 업로드가 완료될 때까지 기다려주세요.')
+    if (!form.startAt || !form.endAt) return alert('시작/종료 시각을 입력해주세요.')
     if (form.openMode === 'scheduled' && !form.publishAt) return alert('오픈 시각을 입력해주세요.')
-    const payload = {
-      ...form,
-      capacity: Number(form.capacity),
-      price: form.isPaid ? Number(form.price) : null,
-      releaseIntervalMinutes: Number(form.releaseIntervalMinutes),
-      refundDeadlineAt: form.isPaid && form.refundDeadlineAt ? form.refundDeadlineAt : null,
-      releaseDeadline: form.releaseDeadline || null,
-      imageUrl: form.imageUrl || null,
-      publishAt: form.openMode === 'scheduled' && form.publishAt ? form.publishAt : null,
-    }
-    createMutation.mutate(payload)
+    createMutation.mutate(buildPayload())
+  }
+
+  const handleDraftSave = () => {
+    if (uploading) return alert('이미지 업로드가 완료될 때까지 기다려주세요.')
+    if (!form.title.trim()) return alert('행사명을 입력해주세요.')
+    draftMutation.mutate(buildPayload())
   }
 
   if (!canCreate) {
@@ -335,10 +349,9 @@ export default function EventCreate() {
                   onChange={set('title')}
                 />
               </Field>
-              <Field label="설명 *" hint={`${form.description.length}/500`}>
+              <Field label="설명" hint={`${form.description.length}/500`}>
                 <textarea
                   className="input min-h-[120px] resize-none"
-                  required
                   maxLength={500}
                   placeholder="행사에 대한 자세한 설명을 적어주세요"
                   value={form.description}
@@ -354,10 +367,10 @@ export default function EventCreate() {
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="시작 *">
-                  <input type="datetime-local" className="input" required value={form.startAt} onChange={set('startAt')} />
+                  <input type="datetime-local" className="input" value={form.startAt} onChange={set('startAt')} />
                 </Field>
                 <Field label="종료 *">
-                  <input type="datetime-local" className="input" required value={form.endAt} onChange={set('endAt')} />
+                  <input type="datetime-local" className="input" value={form.endAt} onChange={set('endAt')} />
                 </Field>
               </div>
               <Field
@@ -496,16 +509,24 @@ export default function EventCreate() {
             </Section>
 
             {/* 제출 */}
-            <div className="flex gap-3 pb-8">
-              <button type="button" onClick={() => navigate(-1)} className="btn flex-1 border border-gray-200 text-gray-600">
+            <div className="flex gap-3 pb-8 flex-wrap">
+              <button type="button" onClick={() => navigate(-1)} className="btn border border-gray-200 text-gray-600 flex-1">
                 취소
               </button>
               <button
-                type="submit"
-                disabled={createMutation.isPending || uploading}
-                className="btn btn-primary flex-2 flex-grow-[2] disabled:opacity-60"
+                type="button"
+                onClick={handleDraftSave}
+                disabled={draftMutation.isPending || createMutation.isPending || uploading}
+                className="btn border border-amber-300 text-amber-700 hover:bg-amber-50 flex-1 disabled:opacity-60"
               >
-                {createMutation.isPending ? '생성 중...' : '행사 생성'}
+                {draftMutation.isPending ? '저장 중...' : '초안으로 저장'}
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || draftMutation.isPending || uploading}
+                className="btn btn-primary flex-[2] disabled:opacity-60"
+              >
+                {createMutation.isPending ? '생성 중...' : '바로 공개'}
               </button>
             </div>
           </div>
