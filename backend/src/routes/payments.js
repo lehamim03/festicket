@@ -216,8 +216,14 @@ registrationRouter.post('/:id/cancel', authMiddleware, async (req, res, next) =>
         .join(' / ')
       return res.status(400).json({ message: `행사가 종료되었습니다. 행사 문의: ${contact}` })
     }
+    // 화이트리스트 무료 신청: paymentKey 없음 → 토스 호출 없이 바로 취소
     if (!registration.paymentKey) {
-      return res.status(400).json({ message: '결제 정보가 없습니다.' })
+      await prisma.registration.update({
+        where: { id },
+        data: { status: 'CANCELLED', refundedAt: new Date() },
+      })
+      audit(userId, 'CANCEL_FREE_WHITELIST', 'REGISTRATION', id, registration.event.title)
+      return res.json({ message: '신청이 취소되었습니다.' })
     }
 
     // BR-P01: 환불 마감 시각 체크 (일반사용자는 마감 이후 환불 불가)

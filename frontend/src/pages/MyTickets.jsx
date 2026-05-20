@@ -152,8 +152,9 @@ export default function MyTickets() {
 function TicketItem({ r, tab, onCancel, onRefund, onCancelPending, onRetryPayment, isPaying }) {
   const [showQR, setShowQR] = useState(false)
   const refundDeadlinePassed = r.event.refundDeadlineAt && new Date() > new Date(r.event.refundDeadlineAt)
-  const canCancel = tab === 'active' && r.status === 'CONFIRMED' && !r.event.isPaid
-  const canRefund = tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && !refundDeadlinePassed
+  const isWhitelistFree = r.event.isPaid && !r.paymentKey
+  const canCancel = tab === 'active' && r.status === 'CONFIRMED' && (!r.event.isPaid || isWhitelistFree)
+  const canRefund = tab === 'active' && r.status === 'CONFIRMED' && r.event.isPaid && !isWhitelistFree && !refundDeadlinePassed
   const canCancelPending = tab === 'active' && r.status === 'PENDING_PAYMENT'
   const canRetryPayment = tab === 'active' && r.status === 'PENDING_PAYMENT' && r.event.isPaid
   const showQRBtn = r.status === 'CONFIRMED' || r.status === 'CHECKED_IN'
@@ -188,7 +189,10 @@ function TicketItem({ r, tab, onCancel, onRefund, onCancelPending, onRetryPaymen
           )}
           {canCancel && (
             <button
-              onClick={() => { if (confirm('신청을 취소하시겠습니까?')) onCancel(r.id) }}
+              onClick={() => {
+                if (confirm('신청을 취소하시겠습니까?'))
+                  isWhitelistFree ? onRefund(r.id) : onCancel(r.id)
+              }}
               className="btn text-xs border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1.5"
             >
               취소
